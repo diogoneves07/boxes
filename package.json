@@ -1,0 +1,31 @@
+{
+  "name": "boxes",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/boxes.umd.js",
+  "module": "./dist/boxes.es.js",
+  "exports": {
+    ".": {
+      "import": "./dist/boxes.es.js",
+      "require": "./dist/boxes.umd.js"
+    }
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "tsc": "tsc",
+    "preview": "vite preview",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@types/jest": "^27.5.1",
+    "jest-environment-jsdom": "^28.1.0",
+    "ts-jest": "^28.0.3",
+    "ts-node": "^10.8.0",
+    "typescript": "^4.7.2",
+    "vite": "^2.9.9"
+  }
+}
