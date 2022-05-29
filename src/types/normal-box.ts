@@ -1,5 +1,3 @@
-// Events... lib: @any, broadcast: *, users: &any,
-
 type BoxesTypeConfig = {
   type: object;
   event: object;

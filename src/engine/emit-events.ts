@@ -1,3 +1,4 @@
+import { EVENTS_PREFIX } from "../globals";
 import { NormalBox, EmitEventConfig } from "../types/normal-box";
 
 const BOXES_WAITING_BROADCAST: NormalBox[] = [];
@@ -52,7 +53,7 @@ export function emitEvents(
         data,
         function removeEvent() {
           keepCallbackfn = false;
-          if (type.substring(0, 1) === "*") {
+          if (type.substring(0, 1) === EVENTS_PREFIX.broadcast) {
             removeBoxFromBroadcastList(listenerBox);
           }
         },
@@ -74,7 +75,7 @@ export function emitEvents(
       listeners[type] = listeners[type].filter((v) => v);
     }
   }
-  if (!broadcastNextBox && type.substring(0, 1) === "*") {
+  if (!broadcastNextBox && type.substring(0, 1) === EVENTS_PREFIX.broadcast) {
     BOXES_WAITING_BROADCAST.forEach((broadcastNextBox) => {
       if (broadcastNextBox !== box) {
         emitEvents(box, type, broadcastNextBox, data, emitEventConfig);
