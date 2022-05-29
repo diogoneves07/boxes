@@ -17,8 +17,7 @@ export type NormalBoxEvents =
   | "@beforeChange"
   | "@change"
   | "@beforeAdd"
-  | "@add"
-  | "@listenersChange";
+  | "@add";
 
 export type NormalBoxEvent<
   BoxTypeConfig extends BoxesTypeConfig = BoxesTypeConfig
@@ -51,19 +50,14 @@ export interface NormalBox<
   listeners: Record<string, ((event: BoxTypeConfig["event"]) => void)[]>;
   type: string;
 
+  set(callbackfn: (currentValue: BoxContent) => any): BoxTypeConfig["type"];
+
   set(
     callbackfn: (
       currentValue: BoxContent,
       event: BoxTypeConfig["event"] | undefined
-    ) => any
-  ): BoxTypeConfig["type"];
-
-  set<EventName extends keyof WindowEventMap>(
-    callbackfn: (
-      currentValue: BoxContent,
-      event: BoxTypeConfig["event"] | undefined
     ) => any,
-    type?: EventName
+    type: BoxTypeConfig["eventsList"]
   ): BoxTypeConfig["type"];
 
   set(
@@ -71,22 +65,15 @@ export interface NormalBox<
       currentValue: BoxContent,
       event: BoxTypeConfig["event"] | undefined
     ) => any,
-    type?: string
+    type: string
   ): BoxTypeConfig["type"];
 
   get(): BoxContent;
 
   change(newValue: BoxContent): BoxTypeConfig["type"];
 
-  on<EventName extends keyof WindowEventMap>(
-    type: EventName,
-    callbackfn: (
-      this: BoxTypeConfig["event"],
-      boxEvent: BoxTypeConfig["event"]
-    ) => void
-  ): BoxTypeConfig["type"];
-  on<EventName extends BoxTypeConfig["eventsList"]>(
-    type: EventName,
+  on(
+    type: BoxTypeConfig["eventsList"],
     callbackfn: (
       this: BoxTypeConfig["event"],
       boxEvent: BoxTypeConfig["event"]
@@ -100,24 +87,14 @@ export interface NormalBox<
     ) => void
   ): BoxTypeConfig["type"];
 
-  off<EventName extends BoxTypeConfig["eventsList"]>(
-    type: EventName,
-    callbackfn: Function
-  ): BoxTypeConfig["type"];
-
-  off<EventName extends keyof WindowEventMap>(
-    type: EventName,
+  off(
+    type: BoxTypeConfig["eventsList"],
     callbackfn: Function
   ): BoxTypeConfig["type"];
 
   off(type: string, callbackfn: Function): BoxTypeConfig["type"];
 
-  emit<EventName extends keyof WindowEventMap>(
-    type: EventName,
-    data?: any,
-    emitEventConfig?: EmitEventConfig
-  ): BoxTypeConfig["type"];
-  emit<EventName extends BoxTypeConfig["eventsList"]>(
+  emit(
     type: BoxTypeConfig["eventsList"],
     data?: any,
     emitEventConfig?: EmitEventConfig

@@ -18,7 +18,7 @@ export const NormalBoxProps: Partial<NormalBox> = {
   set(
     this: NormalBox,
     callbackfn: (currentValue: any, event: NormalBoxEvent | undefined) => any,
-    eventName?: string
+    type?: string
   ) {
     const data = this.__data;
     const run = (e?: NormalBoxEvent) => {
@@ -41,8 +41,8 @@ export const NormalBoxProps: Partial<NormalBox> = {
     //! Gambiarra temporária
     run.originalCallbackfn = callbackfn;
 
-    if (typeof eventName === "string") {
-      addEvent(this, eventName, run);
+    if (typeof type === "string") {
+      addEvent(this, type, run);
     } else {
       run();
     }
