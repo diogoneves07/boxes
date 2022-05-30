@@ -28,7 +28,6 @@ export type NormalBoxEvent<
 };
 
 export type NormalBoxInternalData = {
-  isOriginalValueArray?: boolean;
   content: any | null;
 };
 
@@ -65,6 +64,8 @@ export interface NormalBox<
     ) => any,
     type: string
   ): BoxTypeConfig["type"];
+
+  setIndex(...args: (number | unknown)[]): BoxTypeConfig["type"];
 
   get(): BoxContent;
 

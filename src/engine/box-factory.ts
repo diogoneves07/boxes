@@ -1,17 +1,19 @@
 import { NormalBox } from "../types/normal-box";
-import { NormalBoxProps } from "./normal-box-props";
 import isArray from "../utilities/is-array";
+import { NormalBoxProps } from "./normal-box-props";
 
 export function BoxFactory<BoxContent>(): NormalBox<BoxContent> {
-  const Box = function (args: any | any[]) {
+  const Box = function (...args: any) {
     const data = Box.__data;
 
     Box.emit("@beforeAdd");
     Box.emit("@beforeChange");
-    data.isOriginalValueArray = isArray(args);
     if (!data.content) {
-      data.content = args;
+      data.content = args.length === 1 ? args[0] : args;
     } else {
+      if (!isArray(data.content)) {
+        data.content = [data.content];
+      }
       data.content.push(...args);
     }
 
@@ -23,6 +25,7 @@ export function BoxFactory<BoxContent>(): NormalBox<BoxContent> {
     content: null,
   };
   Box.type = "normal";
+
   Object.assign(Box, NormalBoxProps, { __data: data });
 
   return Box;

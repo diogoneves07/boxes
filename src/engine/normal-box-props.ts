@@ -8,11 +8,8 @@ import { addEvent } from "./add-event";
 import { emitEvents } from "./emit-events";
 export const NormalBoxProps: Partial<NormalBox> = {
   get(this: NormalBox) {
-    const content = this.__data.content;
     this.emit("@beforeGet");
-    return !isArray(content) && this.__data.isOriginalValueArray
-      ? [content]
-      : content;
+    return this.__data.content;
   },
 
   set(
@@ -23,16 +20,12 @@ export const NormalBoxProps: Partial<NormalBox> = {
     const data = this.__data;
     const run = (e?: NormalBoxEvent) => {
       const content = data.content;
+
       this.emit("@beforeGet");
       this.emit("@beforeSet");
       this.emit("@beforeChange");
 
-      data.content = callbackfn(
-        !isArray(content) && this.__data.isOriginalValueArray
-          ? [content]
-          : content,
-        e
-      );
+      data.content = callbackfn(content, e);
 
       this.emit("@set");
       this.emit("@change");
@@ -46,8 +39,30 @@ export const NormalBoxProps: Partial<NormalBox> = {
     } else {
       run();
     }
+
     return this;
   },
+
+  setIndex(this: NormalBox, ...args: (number & any)[]) {
+    this.set((values) => {
+      const wasArray = isArray(values);
+      const newValues = (wasArray ? values : [values]) as any[];
+      const length = newValues.length;
+      let count = 1;
+      while (args[count]) {
+        if (args[count - 1] < length) {
+          newValues[args[count - 1]] = args[count];
+        } else {
+          // TODO Adicinar um aviso de index maior que o número de elementos
+        }
+        count += 2;
+      }
+
+      return wasArray ? newValues : newValues[0];
+    });
+    return this;
+  },
+
   change(this: NormalBox, newValue: any) {
     this.set(() => newValue);
     return this;
@@ -68,10 +83,11 @@ export const NormalBoxProps: Partial<NormalBox> = {
   ) {
     type
       .trim()
-      .split("_")
+      .split(" ")
       .forEach((t) => {
-        if (t) {
-          addEvent(this, t, callbackfn);
+        const event = t.trim();
+        if (event) {
+          addEvent(this, event, callbackfn);
         }
       });
     return this;
@@ -81,11 +97,12 @@ export const NormalBoxProps: Partial<NormalBox> = {
     if (!listeners) return this;
     type
       .trim()
-      .split("_")
+      .split(" ")
       .forEach((t) => {
-        if (t) {
-          if (listeners[t]) {
-            const index = listeners[t].findIndex((c) => {
+        const event = t.trim();
+        if (event) {
+          if (listeners[event]) {
+            const index = listeners[event].findIndex((c) => {
               if (
                 c === callbackfn ||
                 (c as any).originalCallbackfn === callbackfn
@@ -97,7 +114,7 @@ export const NormalBoxProps: Partial<NormalBox> = {
             });
 
             if (index > -1) {
-              listeners[t].splice(index, 1);
+              listeners[event].splice(index, 1);
             }
           }
         }
