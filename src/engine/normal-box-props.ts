@@ -1,3 +1,4 @@
+import { EVENTS_PREFIX } from "./../globals";
 import {
   NormalBox,
   NormalBoxEvent,
@@ -5,7 +6,11 @@ import {
 } from "../types/normal-box";
 import isArray from "../utilities/is-array";
 import { addEvent } from "./add-event";
-import { emitEvents } from "./emit-events";
+import { emitEvents, removeBoxFromBroadcastList } from "./emit-events";
+import removeWhitespaces from "../utilities/remove-whitespaces";
+function splitWithSpace(type: string) {
+  return removeWhitespaces(type).trim().split(" ");
+}
 export const NormalBoxProps: Partial<NormalBox> = {
   get(this: NormalBox) {
     this.emit("@beforeGet");
@@ -27,8 +32,8 @@ export const NormalBoxProps: Partial<NormalBox> = {
 
       data.content = callbackfn(content, e);
 
-      this.emit("@set");
-      this.emit("@change");
+      this.emit("@seted");
+      this.emit("@changed");
     };
 
     //! Gambiarra temporária
@@ -44,27 +49,36 @@ export const NormalBoxProps: Partial<NormalBox> = {
   },
 
   setIndex(this: NormalBox, ...args: (number & any)[]) {
-    this.set((values) => {
-      const wasArray = isArray(values);
-      const newValues = (wasArray ? values : [values]) as any[];
-      const length = newValues.length;
-      let count = 1;
-      while (args[count]) {
-        if (args[count - 1] < length) {
-          newValues[args[count - 1]] = args[count];
-        } else {
-          // TODO Adicinar um aviso de index maior que o número de elementos
-        }
-        count += 2;
+    this.emit("@beforeSet");
+    this.emit("@beforeChange");
+    const content = this.__data.content;
+    const wasArray = isArray(content);
+    const newValues = (wasArray ? content : [content]) as any[];
+    const length = newValues.length;
+    let count = 1;
+    while (args[count]) {
+      if (args[count - 1] < length) {
+        newValues[args[count - 1]] = args[count];
+      } else {
+        // TODO Adicinar um aviso de index maior que o número de elementos
       }
+      count += 2;
+    }
 
-      return wasArray ? newValues : newValues[0];
-    });
+    this.__data.content =
+      wasArray || newValues.length > 1 ? newValues : newValues[0];
+
+    this.emit("@seted");
+    this.emit("@changed");
     return this;
   },
 
   change(this: NormalBox, newValue: any) {
-    this.set(() => newValue);
+    this.emit("@beforeChange");
+
+    this.__data.content = newValue;
+
+    this.emit("@changed");
     return this;
   },
   emit(
@@ -81,44 +95,34 @@ export const NormalBoxProps: Partial<NormalBox> = {
     type: string,
     callbackfn: (boxEvent: NormalBoxEvent) => void
   ) {
-    type
-      .trim()
-      .split(" ")
-      .forEach((t) => {
-        const event = t.trim();
-        if (event) {
-          addEvent(this, event, callbackfn);
-        }
-      });
+    splitWithSpace(type).forEach((t) => {
+      const eventName = t;
+      if (eventName) {
+        addEvent(this, eventName, callbackfn);
+      }
+    });
     return this;
   },
   off(this: NormalBox, type: string, callbackfn: Function) {
     const listeners = this.listeners;
     if (!listeners) return this;
-    type
-      .trim()
-      .split(" ")
-      .forEach((t) => {
-        const event = t.trim();
-        if (event) {
-          if (listeners[event]) {
-            const index = listeners[event].findIndex((c) => {
-              if (
-                c === callbackfn ||
-                (c as any).originalCallbackfn === callbackfn
-              ) {
-                return true;
-              }
+    splitWithSpace(type).forEach((t) => {
+      const eventName = t;
+      if (!listeners[eventName]) {
+        return;
+      }
+      const index = listeners[eventName].findIndex(
+        (c) => c === callbackfn || (c as any).originalCallbackfn === callbackfn
+      );
 
-              return;
-            });
-
-            if (index > -1) {
-              listeners[event].splice(index, 1);
-            }
-          }
+      if (index > -1) {
+        if (eventName.substring(0, 1) === EVENTS_PREFIX.broadcast) {
+          removeBoxFromBroadcastList(this);
         }
-      });
+        listeners[eventName].splice(index, 1);
+        this.emit("@eventRemoved");
+      }
+    });
 
     return this;
   },

@@ -17,8 +17,8 @@ export function BoxFactory<BoxContent>(): NormalBox<BoxContent> {
       data.content.push(...args);
     }
 
-    Box.emit("@add");
-    Box.emit("@change");
+    Box.emit("@added");
+    Box.emit("@changed");
     return Box;
   } as unknown as NormalBox;
   const data: NormalBox["__data"] = {

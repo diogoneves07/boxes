@@ -11,11 +11,13 @@ type NormalBoxConfig<BoxContent> = {
 export type NormalBoxEvents =
   | "@beforeGet"
   | "@beforeSet"
-  | "@set"
+  | "@seted"
   | "@beforeChange"
-  | "@change"
+  | "@changed"
   | "@beforeAdd"
-  | "@add";
+  | "@added"
+  | "@eventAdded"
+  | "@eventRemoved";
 
 export type NormalBoxEvent<
   BoxTypeConfig extends BoxesTypeConfig = BoxesTypeConfig
@@ -44,7 +46,7 @@ export interface NormalBox<
 
   __data: NormalBoxInternalData;
 
-  listeners: Record<string, ((event: BoxTypeConfig["event"]) => void)[]>;
+  listeners?: Record<string, ((event: BoxTypeConfig["event"]) => void)[]>;
   type: string;
 
   set(callbackfn: (currentValue: BoxContent) => any): BoxTypeConfig["type"];
