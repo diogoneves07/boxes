@@ -6,17 +6,17 @@ describe("Getting the current value of the box", () => {
     expect(box.get()).toBeNull();
   });
 
-  test("string value", () => {
+  test("When is a string value", () => {
     const box = Box()("Hello World!");
     expect(box.get()).toBe("Hello World!");
   });
 
-  test("number value", () => {
+  test("When is a number value", () => {
     const box = Box()(2022);
     expect(box.get()).toBe(2022);
   });
 
-  test("array value", () => {
+  test("When is a array value", () => {
     const box = Box()([1, 2, 3]);
     expect(box.get()).toEqual([1, 2, 3]);
   });

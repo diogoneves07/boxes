@@ -1,6 +1,6 @@
 import { Box } from "../src/engine/Box";
 
-test("@beforeAdd", () => {
+test("Events with the same callbackfn", () => {
   const box = Box();
   const callbackfn = jest.fn();
   box.on(

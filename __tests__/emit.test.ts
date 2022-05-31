@@ -8,7 +8,7 @@ describe("Emit events", () => {
     box.emit("+anyEvent");
     expect(callbackfn).toBeCalledTimes(2);
   });
-  test("No event added in the box", () => {
+  test("Emit when there was no event added in the box", () => {
     const box = Box();
     box.emit("+anyEvent");
   });
