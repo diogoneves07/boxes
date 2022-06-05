@@ -49,11 +49,11 @@ export interface NormalBox<
   listeners?: Record<string, ((event: BoxTypeConfig["event"]) => void)[]>;
   type: string;
 
-  set(callbackfn: (currentValue: BoxContent) => any): BoxTypeConfig["type"];
+  set(callbackfn: (currentValue: any) => any): BoxTypeConfig["type"];
 
   set(
     callbackfn: (
-      currentValue: BoxContent,
+      currentValue: any,
       event: BoxTypeConfig["event"] | undefined
     ) => any,
     type: BoxTypeConfig["eventsList"]
@@ -61,7 +61,7 @@ export interface NormalBox<
 
   set(
     callbackfn: (
-      currentValue: BoxContent,
+      currentValue: any,
       event: BoxTypeConfig["event"] | undefined
     ) => any,
     type: string
@@ -69,9 +69,9 @@ export interface NormalBox<
 
   setIndex(...args: (number | unknown)[]): BoxTypeConfig["type"];
 
-  get(): BoxContent;
+  get(): any;
 
-  change(newValue: BoxContent): BoxTypeConfig["type"];
+  change(newValue: any): BoxTypeConfig["type"];
 
   on(
     type: BoxTypeConfig["eventsList"],

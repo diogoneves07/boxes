@@ -11,17 +11,19 @@ test("Events with the same callbackfn", () => {
   box(2020); // calls: @beforeAdd, @beforeChange, @added, @changed
   box.set(() => 2021); // calls: @beforeGet, @beforeSet, @beforeChange, @seted, @changed
   box.change(2022); // calls: @beforeChange, @changed
-  expect(callbackfn.mock.calls[0][0].type).toBe("@beforeGet");
-  expect(callbackfn.mock.calls[1][0].type).toBe("@beforeAdd");
-  expect(callbackfn.mock.calls[2][0].type).toBe("@beforeChange");
-  expect(callbackfn.mock.calls[3][0].type).toBe("@added");
-  expect(callbackfn.mock.calls[4][0].type).toBe("@changed");
-  expect(callbackfn.mock.calls[5][0].type).toBe("@beforeGet");
-  expect(callbackfn.mock.calls[6][0].type).toBe("@beforeSet");
-  expect(callbackfn.mock.calls[7][0].type).toBe("@beforeChange");
-  expect(callbackfn.mock.calls[8][0].type).toBe("@seted");
-  expect(callbackfn.mock.calls[9][0].type).toBe("@changed");
-  expect(callbackfn.mock.calls[10][0].type).toBe("@beforeChange");
-  expect(callbackfn.mock.calls[11][0].type).toBe("@changed");
+
+  const calls = callbackfn.mock.calls;
+  expect(calls[0][0].type).toBe("@beforeGet");
+  expect(calls[1][0].type).toBe("@beforeAdd");
+  expect(calls[2][0].type).toBe("@beforeChange");
+  expect(calls[3][0].type).toBe("@added");
+  expect(calls[4][0].type).toBe("@changed");
+  expect(calls[5][0].type).toBe("@beforeGet");
+  expect(calls[6][0].type).toBe("@beforeSet");
+  expect(calls[7][0].type).toBe("@beforeChange");
+  expect(calls[8][0].type).toBe("@seted");
+  expect(calls[9][0].type).toBe("@changed");
+  expect(calls[10][0].type).toBe("@beforeChange");
+  expect(calls[11][0].type).toBe("@changed");
   expect(callbackfn).toBeCalledTimes(12);
 });
