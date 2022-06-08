@@ -73,10 +73,10 @@ export const NormalBoxProps: Partial<NormalBox> = {
     return this;
   },
 
-  change(this: NormalBox, newValue: any) {
+  change(this: NormalBox, ...newValues: any[]) {
     this.emit("@beforeChange");
 
-    this.__data.content = newValue;
+    this.__data.content = newValues[1] ? newValues : newValues[0];
 
     this.emit("@changed");
     return this;

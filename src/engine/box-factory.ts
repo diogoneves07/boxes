@@ -27,7 +27,7 @@ export function BoxFactory<BoxContent>(): NormalBox<BoxContent> {
   };
   Box.type = "normal";
 
-  Object.assign(Box, NormalBoxProps, { __data: data });
+  Object.assign(Box, NormalBoxProps, { __data: data, isBox: true });
   Object.setPrototypeOf(Box, GLOBAL_PROTOTYPE);
 
   return Box;

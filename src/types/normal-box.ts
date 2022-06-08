@@ -47,7 +47,10 @@ export interface NormalBox<
   __data: NormalBoxInternalData;
 
   listeners?: Record<string, ((event: BoxTypeConfig["event"]) => void)[]>;
+
   type: string;
+
+  isBox: true;
 
   set(callbackfn: (currentValue: any) => any): BoxTypeConfig["type"];
 
@@ -71,7 +74,7 @@ export interface NormalBox<
 
   get(): any;
 
-  change(newValue: any): BoxTypeConfig["type"];
+  change(...newValue: any[]): BoxTypeConfig["type"];
 
   on(
     type: BoxTypeConfig["eventsList"],

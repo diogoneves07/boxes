@@ -41,7 +41,6 @@ export function emitEvents(
   const listeners = box.listeners;
   const isBroadcastEvent = type.substring(0, 1) === EVENTS_PREFIX.broadcast;
   let willCleanlistenerArray: boolean = false;
-
   if (!broadcastNextBox && isBroadcastEvent) {
     BOXES_WAITING_BROADCAST.forEach((nextBox) => {
       emitEvents(nextBox, type, data, box, emitEventConfig);
