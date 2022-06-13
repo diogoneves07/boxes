@@ -1,4 +1,4 @@
-import { Box } from "../src/engine/Box";
+import Box from "../src/engine/Box";
 
 describe("Remove events in the box", () => {
   test("@beforeAdd", () => {

@@ -1,4 +1,4 @@
-import { Box } from "../src/engine/Box";
+import Box from "../src/engine/Box";
 describe("Emit events", () => {
   test("Simple emission", () => {
     const callbackfn = jest.fn();
@@ -36,7 +36,7 @@ describe("Emit events", () => {
 
   test("Broadcast emission", () => {
     const callbackfn = jest.fn();
-    const [box1, box2] = Box(2);
+    const [box1, box2] = [0, 1].map(() => Box());
     box1.on("*anyEvent", callbackfn);
     box2.emit("*anyEvent");
     expect(callbackfn).toBeCalledTimes(1);

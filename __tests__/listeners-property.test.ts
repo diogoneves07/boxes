@@ -1,4 +1,4 @@
-import { Box } from "../src/engine/Box";
+import Box from "../src/engine/Box";
 describe("listeners property", () => {
   test("Initial value", () => {
     const box = Box();
@@ -10,7 +10,7 @@ describe("listeners property", () => {
     const callbackfn = () => {};
     box.on("*anyEvent", callbackfn);
     expect(box.listeners).toEqual({
-      "*anyEvent": [callbackfn],
+      "*anyEvent": new Set().add(callbackfn),
     });
   });
 });

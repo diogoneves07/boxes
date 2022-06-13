@@ -1,7 +1,6 @@
 import { NormalBox } from "../types/normal-box";
 import isArray from "../utilities/is-array";
 import { NormalBoxProps } from "./normal-box-props";
-export const GLOBAL_PROTOTYPE = { bame: "Neves" };
 
 export function BoxFactory<BoxContent>(): NormalBox<BoxContent> {
   const Box = function (...args: any) {
@@ -18,6 +17,7 @@ export function BoxFactory<BoxContent>(): NormalBox<BoxContent> {
       data.content.push(...args);
     }
 
+    Box.emit("@normalize");
     Box.emit("@added");
     Box.emit("@changed");
     return Box;
@@ -25,10 +25,7 @@ export function BoxFactory<BoxContent>(): NormalBox<BoxContent> {
   const data: NormalBox["__data"] = {
     content: null,
   };
-  Box.type = "normal";
 
   Object.assign(Box, NormalBoxProps, { __data: data, isBox: true });
-  Object.setPrototypeOf(Box, GLOBAL_PROTOTYPE);
-
   return Box;
 }

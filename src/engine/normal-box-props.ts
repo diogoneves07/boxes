@@ -8,10 +8,12 @@ import isArray from "../utilities/is-array";
 import { addEvent } from "./add-event";
 import { emitEvents, removeBoxFromBroadcastList } from "./emit-events";
 import removeWhitespaces from "../utilities/remove-whitespaces";
+import useDataIntoBoxes from "./use-data-into-boxes";
 function splitWithSpace(type: string) {
   return removeWhitespaces(type).trim().split(" ");
 }
 export const NormalBoxProps: Partial<NormalBox> = {
+  type: "normal",
   get(this: NormalBox) {
     this.emit("@beforeGet");
     return this.__data.content;
@@ -32,6 +34,7 @@ export const NormalBoxProps: Partial<NormalBox> = {
 
       data.content = callbackfn(content, e);
 
+      this.emit("@normalize");
       this.emit("@seted");
       this.emit("@changed");
     };
@@ -45,6 +48,13 @@ export const NormalBoxProps: Partial<NormalBox> = {
       run();
     }
 
+    return this;
+  },
+  normalize(this: NormalBox, callbackfn: (currentValue: any) => any) {
+    this.emit("@beforeNormalize");
+    const data = this.__data;
+    data.content = callbackfn(data.content);
+    this.emit("@normalized");
     return this;
   },
 
@@ -68,6 +78,7 @@ export const NormalBoxProps: Partial<NormalBox> = {
     this.__data.content =
       wasArray || newValues.length > 1 ? newValues : newValues[0];
 
+    this.emit("@normalize");
     this.emit("@seted");
     this.emit("@changed");
     return this;
@@ -77,10 +88,14 @@ export const NormalBoxProps: Partial<NormalBox> = {
     this.emit("@beforeChange");
 
     this.__data.content = newValues[1] ? newValues : newValues[0];
-
+    this.emit("@normalize");
     this.emit("@changed");
     return this;
   },
+  useDataIntoBoxes(this: NormalBox, ...ignoreBoxes: (NormalBox | string)[]) {
+    return useDataIntoBoxes(this, ignoreBoxes);
+  },
+
   emit(
     this: NormalBox,
     type: string,
@@ -90,11 +105,7 @@ export const NormalBoxProps: Partial<NormalBox> = {
     emitEvents(this, type, data, null, emitEventConfig);
     return this;
   },
-  on(
-    this: NormalBox,
-    type: string,
-    callbackfn: (boxEvent: NormalBoxEvent) => void
-  ) {
+  on(this: NormalBox, type: string, callbackfn: (boxEvent: any) => void) {
     splitWithSpace(type).forEach((t) => {
       const eventName = t;
       if (eventName) {
@@ -111,15 +122,15 @@ export const NormalBoxProps: Partial<NormalBox> = {
       if (!listeners[eventName]) {
         return;
       }
-      const index = listeners[eventName].findIndex(
+      const fn = [...listeners[eventName]].find(
         (c) => c === callbackfn || (c as any).originalCallbackfn === callbackfn
       );
 
-      if (index > -1) {
+      if (fn) {
         if (eventName.substring(0, 1) === EVENTS_PREFIX.broadcast) {
           removeBoxFromBroadcastList(this);
         }
-        listeners[eventName].splice(index, 1);
+        listeners[eventName].delete((fn as any).originalCallbackfn || fn);
         this.emit("@eventRemoved");
       }
     });

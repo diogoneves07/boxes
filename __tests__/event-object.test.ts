@@ -1,4 +1,4 @@
-import { Box } from "../src/engine/Box";
+import Box from "../src/engine/Box";
 
 describe("Event object properties", () => {
   test("Check properties in object", () => {
@@ -14,6 +14,7 @@ describe("Event object properties", () => {
       box: box,
       broadcastBox: null,
       off: callbackfn.mock.calls[0][0].off,
+      hasChanged: null,
     });
 
     expect(callbackfn.mock.calls[0][0].off).toBeTruthy();

@@ -1,4 +1,4 @@
-import { Box } from "../src/engine/Box";
+import Box from "../src/engine/Box";
 
 test("Events with the same callbackfn", () => {
   const box = Box();

@@ -1,8 +1,8 @@
-import { Box } from "../src/engine/Box";
+import Box from "../src/engine/Box";
 describe("Broadcast event", () => {
   test("Add Broadcast event", () => {
     const callbackfn = jest.fn();
-    const [box1, box2, box3] = Box(3);
+    const [box1, box2, box3] = [0, 1, 2].map(() => Box());
 
     box1.on("*anyEvent", callbackfn);
     box2.on("*anyEvent", callbackfn);
@@ -14,7 +14,7 @@ describe("Broadcast event", () => {
   });
   test("Remove Broadcast event", () => {
     const callbackfn = jest.fn();
-    const [box1, box2, box3] = Box(3);
+    const [box1, box2, box3] = [0, 1, 2].map(() => Box());
 
     box1.on("*anyEvent", (e) => {
       e.off();

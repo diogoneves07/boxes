@@ -28,6 +28,11 @@ function CreateBoxEvent(
     off,
     broadcastBox,
     data,
+
+    // This method always comes from EmitEventConfig
+    hasChanged: null,
+
+    changedBoxes: null,
   };
 }
 
@@ -39,8 +44,8 @@ export function emitEvents(
   emitEventConfig?: EmitEventConfig
 ) {
   const listeners = box.listeners;
+
   const isBroadcastEvent = type.substring(0, 1) === EVENTS_PREFIX.broadcast;
-  let willCleanlistenerArray: boolean = false;
   if (!broadcastNextBox && isBroadcastEvent) {
     BOXES_WAITING_BROADCAST.forEach((nextBox) => {
       emitEvents(nextBox, type, data, box, emitEventConfig);
@@ -52,15 +57,15 @@ export function emitEvents(
     return;
   }
 
-  listeners[type].forEach((callbackfn, index, array) => {
-    let keepCallbackfn: boolean = true;
+  [...new Set(listeners[type])].forEach((callbackfn) => {
+    let removeCallbackfn: boolean = false;
 
     const boxEvent = CreateBoxEvent(
       box,
       type,
       data,
       function removeEvent() {
-        keepCallbackfn = false;
+        removeCallbackfn = true;
         if (isBroadcastEvent) {
           removeBoxFromBroadcastList(box);
         }
@@ -74,13 +79,6 @@ export function emitEvents(
     }
 
     callbackfn.call(boxEvent, boxEvent);
-    if (!keepCallbackfn) {
-      array[index] = null as any;
-      willCleanlistenerArray = true;
-    }
+    removeCallbackfn && listeners[type].delete(callbackfn);
   });
-
-  if (willCleanlistenerArray) {
-    listeners[type] = listeners[type].filter((v) => v);
-  }
 }

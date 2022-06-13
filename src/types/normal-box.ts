@@ -16,9 +16,12 @@ export type NormalBoxEvents =
   | "@changed"
   | "@beforeAdd"
   | "@added"
+  | "@normalize"
+  | "@beforeNormalize"
+  | "@normalized"
+  | "@deepChanges"
   | "@eventAdded"
   | "@eventRemoved";
-
 export type NormalBoxEvent<
   BoxTypeConfig extends BoxesTypeConfig = BoxesTypeConfig
 > = {
@@ -26,6 +29,8 @@ export type NormalBoxEvent<
   data: any | null;
   box: BoxTypeConfig["type"];
   broadcastBox: BoxTypeConfig["type"] | null;
+  hasChanged: ((...args: (BoxTypeConfig["type"] | string)[]) => boolean) | null;
+  changedBoxes: BoxTypeConfig["type"][] | null;
   off(): void;
 };
 
@@ -46,7 +51,7 @@ export interface NormalBox<
 
   __data: NormalBoxInternalData;
 
-  listeners?: Record<string, ((event: BoxTypeConfig["event"]) => void)[]>;
+  listeners?: Record<string, Set<(event: BoxTypeConfig["event"]) => void>>;
 
   type: string;
 
@@ -70,11 +75,28 @@ export interface NormalBox<
     type: string
   ): BoxTypeConfig["type"];
 
+  normalize(callbackfn: (currentValue: any) => any): BoxTypeConfig["type"];
+
   setIndex(...args: (number | unknown)[]): BoxTypeConfig["type"];
 
   get(): any;
 
   change(...newValue: any[]): BoxTypeConfig["type"];
+
+  useDataIntoBoxes(...ignoreBoxes: (NormalBox | string)[]): any;
+
+  on(
+    type: "@deepChanges",
+    callbackfn: (
+      this: BoxTypeConfig["event"],
+      boxEvent: BoxTypeConfig["event"] & {
+        hasChanged: (
+          ...ignoreBoxes: (BoxTypeConfig["type"] | string)[]
+        ) => boolean;
+        changedBoxes: BoxTypeConfig["type"][];
+      }
+    ) => void
+  ): BoxTypeConfig["type"];
 
   on(
     type: BoxTypeConfig["eventsList"],
@@ -83,6 +105,7 @@ export interface NormalBox<
       boxEvent: BoxTypeConfig["event"]
     ) => void
   ): BoxTypeConfig["type"];
+
   on(
     type: string,
     callbackfn: (
