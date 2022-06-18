@@ -1,33 +1,25 @@
 import { NormalBox } from "./../types/normal-box";
 import ignoreBoxes from "./ignore-boxes";
 
-function getDataIntoBoxes(
-  arrayOrBox: any,
-  ignore?: (NormalBox | string)[]
-): any {
+function dataIntoBoxes(arrayOrBox: any, ignore?: (NormalBox | string)[]): any {
   if (Array.isArray(arrayOrBox)) {
-    return arrayOrBox.map((value) => {
-      if (ignoreBoxes(value, ignore)) {
-        return getDataIntoBoxes((value as any).get(), ignore);
+    return arrayOrBox.map((item) => {
+      if (ignoreBoxes(item, ignore)) {
+        return dataIntoBoxes((item as any).get(), ignore);
       }
-      return value;
+      return item;
     });
   }
   if (ignoreBoxes(arrayOrBox, ignore)) {
-    return getDataIntoBoxes((arrayOrBox as NormalBox).get(), ignore);
+    return dataIntoBoxes((arrayOrBox as NormalBox).get(), ignore);
   }
 
   return arrayOrBox;
 }
 
-export default function useDataIntoBoxes(
+export default function getDataIntoBoxes(
   values: any,
   ignoreBoxes?: (NormalBox | string)[]
 ) {
-  const wasArray = Array.isArray(values);
-  const valuesWithoutBoxe = getDataIntoBoxes(
-    wasArray ? values : [values],
-    ignoreBoxes
-  );
-  return wasArray ? valuesWithoutBoxe : valuesWithoutBoxe[0];
+  return dataIntoBoxes(values, ignoreBoxes);
 }

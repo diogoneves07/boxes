@@ -97,21 +97,21 @@ describe("Add events in the box", () => {
     setTimeout(() => {
       expect(callbackfn).toBeCalledTimes(1);
       done();
-    }, 100);
+    }, 50);
   });
 
-  test("@eventAdded", () => {
+  test("@listenerAdded", () => {
     const box = Box();
     const callbackfn = jest.fn();
-    box.on("@eventAdded", callbackfn);
+    box.on("@listenerAdded", callbackfn);
     box.on("+any", () => {});
     expect(callbackfn).toBeCalled();
   });
 
-  test("@eventRemoved", () => {
+  test("@listenerRemoved", () => {
     const box = Box();
     const callbackfn = jest.fn();
-    box.on("@eventRemoved", callbackfn);
+    box.on("@listenerRemoved", callbackfn);
     box.on("+any", callbackfn);
     box.off("+any", callbackfn);
     expect(callbackfn).toBeCalled();

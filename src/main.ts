@@ -1,7 +1,8 @@
 export type {
   NormalBox,
-  NormalBoxEvents,
   NormalBoxEvent,
+  BoxEventMap,
 } from "./types/normal-box";
+export type { NormalBoxEvents } from "./types/events";
 import Box from "./engine/Box";
 export default Box;

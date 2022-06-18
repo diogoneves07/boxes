@@ -14,6 +14,7 @@ function splitWithSpace(type: string) {
 }
 export const NormalBoxProps: Partial<NormalBox> = {
   type: "normal",
+  isBox: true,
   get(this: NormalBox) {
     this.emit("@beforeGet");
     return this.__data.content;
@@ -21,22 +22,22 @@ export const NormalBoxProps: Partial<NormalBox> = {
 
   set(
     this: NormalBox,
-    callbackfn: (currentValue: any, event: NormalBoxEvent | undefined) => any,
+    callbackfn: (currentValue: any, event: NormalBoxEvent) => any,
     type?: string
   ) {
     const data = this.__data;
     const run = (e?: NormalBoxEvent) => {
       const content = data.content;
 
-      this.emit("@beforeGet");
       this.emit("@beforeSet");
       this.emit("@beforeChange");
 
-      data.content = callbackfn(content, e);
+      data.content = callbackfn(content, e as any);
 
       this.emit("@normalize");
       this.emit("@seted");
       this.emit("@changed");
+      data.cacheDataIntoBoxes = undefined;
     };
 
     //! Gambiarra temporária
@@ -50,11 +51,38 @@ export const NormalBoxProps: Partial<NormalBox> = {
 
     return this;
   },
-  normalize(this: NormalBox, callbackfn: (currentValue: any) => any) {
-    this.emit("@beforeNormalize");
+  has(this: NormalBox, value: any) {
+    const content = this.__data.content;
+    if (Array.isArray(content)) {
+      return content.includes(value);
+    }
+    return Object.is(content, value);
+  },
+  normalize(
+    this: NormalBox,
+    callbackfn: (currentValue: any, event: NormalBoxEvent) => any,
+    type?: string
+  ) {
     const data = this.__data;
-    data.content = callbackfn(data.content);
-    this.emit("@normalized");
+    const run = (e?: NormalBoxEvent) => {
+      const content = data.content;
+      this.emit("@beforeNormalize");
+
+      data.content = callbackfn(content, e as any);
+
+      this.emit("@normalized");
+      data.cacheDataIntoBoxes = undefined;
+    };
+
+    //! Gambiarra temporária
+    run.originalCallbackfn = callbackfn;
+
+    if (typeof type === "string") {
+      addEvent(this, type, run);
+    } else {
+      run();
+    }
+
     return this;
   },
 
@@ -81,6 +109,8 @@ export const NormalBoxProps: Partial<NormalBox> = {
     this.emit("@normalize");
     this.emit("@seted");
     this.emit("@changed");
+    this.__data.cacheDataIntoBoxes = undefined;
+
     return this;
   },
 
@@ -90,10 +120,27 @@ export const NormalBoxProps: Partial<NormalBox> = {
     this.__data.content = newValues[1] ? newValues : newValues[0];
     this.emit("@normalize");
     this.emit("@changed");
+    this.__data.cacheDataIntoBoxes = undefined;
+
     return this;
   },
-  useDataIntoBoxes(this: NormalBox, ...ignoreBoxes: (NormalBox | string)[]) {
-    return useDataIntoBoxes(this, ignoreBoxes);
+  getDataIntoBoxes(
+    this: NormalBox,
+    ignoreBoxes?: NormalBox | string | (NormalBox | string)[]
+  ) {
+    if (this.__data.cacheDataIntoBoxes) {
+      return this.__data.cacheDataIntoBoxes;
+    }
+    const value = useDataIntoBoxes(
+      this.__data.content,
+      ignoreBoxes
+        ? Array.isArray(ignoreBoxes)
+          ? ignoreBoxes
+          : [ignoreBoxes]
+        : undefined
+    );
+    this.__data.cacheDataIntoBoxes = value;
+    return value;
   },
 
   emit(
@@ -131,7 +178,19 @@ export const NormalBoxProps: Partial<NormalBox> = {
           removeBoxFromBroadcastList(this);
         }
         listeners[eventName].delete((fn as any).originalCallbackfn || fn);
-        this.emit("@eventRemoved");
+        if (
+          eventName !== "@listenerAdded" &&
+          eventName !== "@listenerRemoved"
+        ) {
+          this.emit("@listenerRemoved", null, {
+            props: {
+              listenerRemoved: {
+                type: eventName,
+                fn: (fn as any).originalCallbackfn || fn,
+              },
+            },
+          });
+        }
       }
     });
 

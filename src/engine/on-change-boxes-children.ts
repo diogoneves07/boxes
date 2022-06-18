@@ -1,6 +1,4 @@
-import isArray from "../utilities/is-array";
-import { NormalBox } from "./../types/normal-box";
-import ignoreBoxes from "./ignore-boxes";
+import { NormalBox, BoxEventMap } from "./../types/normal-box";
 type WapperCallbackfn = {
   wasCall?: boolean;
   allBoxesChanged?: Set<NormalBox>;
@@ -16,24 +14,53 @@ function addListener(box: NormalBox, wapperCallbackfn: WapperCallbackfn) {
     wapperCallbackfn.allBoxesChanged.add(box);
     if (!wapperCallbackfn.wasCall) {
       wapperCallbackfn.wasCall = true;
-      window.requestAnimationFrame(() => {
+      setTimeout(() => {
         wapperCallbackfn();
       });
     }
   }
   box.on("@changed", fn);
-  return () => {
-    box.off("@changed", fn);
+  return fn;
+}
+function addListeners(
+  box: NormalBox,
+  wapperCallbackfn: WapperCallbackfn,
+  lastAllListeners?: Map<NormalBox, Function>
+) {
+  const content = box.__data.content;
+
+  let allListeners: Map<NormalBox, Function> | undefined;
+
+  const run = (value: any) => {
+    if (value && value.isBox) {
+      if (!allListeners) {
+        allListeners = new Map();
+      }
+      if (lastAllListeners) {
+        const previousCallbackfn = lastAllListeners.get(value);
+
+        allListeners.set(
+          value,
+          previousCallbackfn || addListener(value, wapperCallbackfn)
+        );
+
+        if (previousCallbackfn) {
+          lastAllListeners.delete(value);
+        }
+      } else {
+        allListeners.set(value, addListener(value, wapperCallbackfn));
+      }
+    }
   };
+
+  Array.isArray(content) ? content.forEach(run) : run(content);
+
+  return [allListeners, lastAllListeners];
 }
 export default function onChangeBoxesChildren(
   box: NormalBox,
-  callbackfn: (allBoxesChanged: Set<NormalBox>) => void,
-  ignore?: string[]
+  callbackfn: (allBoxesChanged: Set<NormalBox>) => void
 ): any {
-  const content = box.__data.content;
-  const allListeners: (() => void)[] = [];
-
   const wapperCallbackfn: WapperCallbackfn = () => {
     const allBoxesChanged = wapperCallbackfn.allBoxesChanged;
     wapperCallbackfn.wasCall = false;
@@ -41,41 +68,38 @@ export default function onChangeBoxesChildren(
 
     callbackfn(allBoxesChanged as Set<NormalBox>);
   };
+  let allListeners = addListeners(box, wapperCallbackfn)[0];
+  if (!allListeners) {
+    return;
+  }
 
-  const checkEventsRemoved = () => {
-    if (
-      box.listeners &&
-      (!box.listeners["@deepChanges"] ||
-        box.listeners["@deepChanges"].size === 0)
-    ) {
-      checkBoxChanges();
+  const removeOnChangeBoxesChildren = () => {
+    allListeners?.forEach((item) => item());
+    box.off("@listenerRemoved", checklistenerRemoved);
+    box.off("@changed", changedBoxValues);
+  };
+  const checklistenerRemoved = (e: BoxEventMap["@listenerRemoved"]) => {
+    if (e.listenerRemoved.type === "@deepChanges") {
+      removeOnChangeBoxesChildren();
     }
   };
-  const checkBoxChanges = () => {
-    allListeners.forEach((item) => item());
-    clearEvents();
-    onChangeBoxesChildren(box, callbackfn, ignore);
-  };
+  let waitingTimeout: boolean = false;
+  const changedBoxValues = () => {
+    if (!waitingTimeout) {
+      setTimeout(() => {
+        const values = addListeners(box, wapperCallbackfn, allListeners);
+        allListeners = values[0];
 
-  const clearEvents = () => {
-    box.off("@eventRemoved", checkEventsRemoved);
-    box.off("@changed", checkBoxChanges);
-  };
+        if (values[1]) {
+          values[1].forEach((item) => item());
+        }
 
-  box.on("@eventRemoved", checkEventsRemoved);
-  box.on("@changed", checkBoxChanges);
-
-  const checkfn: (value: any) => any = (value: any) => {
-    if (ignoreBoxes(value, ignore)) {
-      allListeners.push(addListener(value, wapperCallbackfn));
-
-      const values = (value as NormalBox).__data.content;
-
-      return isArray(values)
-        ? onChangeBoxesChildren(values, wapperCallbackfn, ignore)
-        : checkfn(values);
+        waitingTimeout = false;
+      }, 0);
+      waitingTimeout = true;
     }
   };
 
-  (Array.isArray(content) ? content : [content]).forEach(checkfn);
+  box.on("@listenerRemoved", checklistenerRemoved);
+  box.on("@changed", changedBoxValues);
 }

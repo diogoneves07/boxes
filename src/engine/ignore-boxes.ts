@@ -5,10 +5,7 @@ export default function ignoreBoxes(
 ) {
   return value &&
     (value as NormalBox).isBox &&
-    (!ignore ||
-      !ignore.find(
-        (item) => value === item || value.type === (item as NormalBox).type
-      ))
+    (!ignore || !ignore.find((item) => value === item || value.type === item))
     ? true
     : false;
 }

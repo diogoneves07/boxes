@@ -28,11 +28,6 @@ function CreateBoxEvent(
     off,
     broadcastBox,
     data,
-
-    // This method always comes from EmitEventConfig
-    hasChanged: null,
-
-    changedBoxes: null,
   };
 }
 
@@ -56,8 +51,15 @@ export function emitEvents(
   if (!listeners || !listeners[type]) {
     return;
   }
+  const listenersSet = listeners[type];
+  const values = listenersSet.values();
 
-  [...new Set(listeners[type])].forEach((callbackfn) => {
+  const recursion = () => {
+    const value = values.next();
+    if (value.done) {
+      return;
+    }
+    const callbackfn = value.value;
     let removeCallbackfn: boolean = false;
 
     const boxEvent = CreateBoxEvent(
@@ -69,7 +71,16 @@ export function emitEvents(
         if (isBroadcastEvent) {
           removeBoxFromBroadcastList(box);
         }
-        box.emit("@eventRemoved");
+        if (type !== "@listenerAdded" && type !== "@listenerRemoved") {
+          box.emit("@listenerRemoved", null, {
+            props: {
+              listenerRemoved: {
+                type,
+                fn: callbackfn,
+              },
+            },
+          });
+        }
       },
       broadcastNextBox
     );
@@ -79,6 +90,8 @@ export function emitEvents(
     }
 
     callbackfn.call(boxEvent, boxEvent);
-    removeCallbackfn && listeners[type].delete(callbackfn);
-  });
+    removeCallbackfn && listenersSet.delete(callbackfn);
+    recursion();
+  };
+  recursion();
 }

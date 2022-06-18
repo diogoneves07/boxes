@@ -21,20 +21,33 @@ export function addEvent(box: NormalBox, type: string, callbackfn: Function) {
       box.emit("@deepChanges", null, {
         props: {
           changedBoxes: boxes,
-          hasChanged: (...ignoreBoxes: (NormalBox | string)[]) => {
-            for (const iterator of ignoreBoxes) {
-              let check: any = boxes.find((item) => {
-                return item === iterator || item.type === iterator;
-              });
-              if (check) {
-                return true;
+          onlyChanged: (check: NormalBox | string | (NormalBox | string)[]) => {
+            const notIgnore = Array.isArray(check) ? check : [check];
+
+            if (notIgnore.length > boxes.length) {
+              return false;
+            }
+
+            for (const box of boxes) {
+              if (!notIgnore.includes(box) && !notIgnore.includes(box.type)) {
+                return false;
               }
             }
-            return false;
+
+            return true;
           },
         },
       });
     });
   }
-  box.emit("@eventAdded");
+  if (type !== "@listenerAdded" && type !== "@listenerRemoved") {
+    box.emit("@listenerAdded", null, {
+      props: {
+        listenerAdded: {
+          type,
+          fn: callbackfn,
+        },
+      },
+    });
+  }
 }
