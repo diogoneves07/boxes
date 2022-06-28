@@ -1,97 +1,110 @@
-import { EVENTS_PREFIX } from "../globals";
+import { LISTENERS_STORE } from "./listeners-store";
+import { EVENTS_PREFIXES } from "../globals";
 import { NormalBox, EmitEventConfig } from "../types/normal-box";
-
-const BOXES_WAITING_BROADCAST: NormalBox[] = [];
-
-export function removeBoxFromBroadcastList(box: NormalBox) {
-  const index = BOXES_WAITING_BROADCAST.indexOf(box);
-
-  if (index >= 0) {
-    BOXES_WAITING_BROADCAST.splice(index, 1);
-  }
-}
-
-export function addBoxToBroadcastList(box: NormalBox) {
-  BOXES_WAITING_BROADCAST.push(box);
-}
+import { BROADCAST_STORE } from "./broadcast-store";
+import createLinkAmoungRelatives from "./create-link-amoung-relatives";
 
 function CreateBoxEvent(
   box: NormalBox,
-  type: string,
+  eventName: string,
   data: any | null = null,
   off: () => void,
-  broadcastBox: NormalBox | null = null
+  triggerBox: NormalBox
 ) {
   return {
     box,
-    type,
+    eventName,
     off,
-    broadcastBox,
+    triggerBox,
     data,
   };
 }
+function removeEvent(box: NormalBox, eventName: string, callbackfn: Function) {
+  box.off(eventName, callbackfn);
+}
 
+function emitToRelatives(eventName: string, box: NormalBox) {
+  const treeEventName = `${eventName}[tree]`;
+  const boxes = LISTENERS_STORE.get(treeEventName);
+
+  if (boxes) {
+    createLinkAmoungRelatives(box);
+
+    const relatives = box.__data.relatives;
+
+    if (relatives) {
+      for (const relative of relatives) {
+        if (boxes.has(relative)) {
+          relative.emit(treeEventName, null, {
+            props: { triggerBox: box },
+          });
+        }
+      }
+    }
+  }
+}
 export function emitEvents(
   box: NormalBox,
-  type: string,
+  eventName: string,
   data: any = null,
   broadcastNextBox: NormalBox | null = null,
   emitEventConfig?: EmitEventConfig
 ) {
-  const listeners = box.listeners;
-
-  const isBroadcastEvent = type.substring(0, 1) === EVENTS_PREFIX.broadcast;
-  if (!broadcastNextBox && isBroadcastEvent) {
-    BOXES_WAITING_BROADCAST.forEach((nextBox) => {
-      emitEvents(nextBox, type, data, box, emitEventConfig);
-    });
+  if (!LISTENERS_STORE.has(eventName)) {
+    emitToRelatives(eventName, box);
     return;
   }
 
-  if (!listeners || !listeners[type]) {
-    return;
-  }
-  const listenersSet = listeners[type];
-  const values = listenersSet.values();
+  if (!broadcastNextBox) {
+    const isBroadcastEvent =
+      eventName.substring(0, 1) === EVENTS_PREFIXES.broadcast;
 
-  const recursion = () => {
-    const value = values.next();
-    if (value.done) {
+    if (isBroadcastEvent) {
+      BROADCAST_STORE.forEach((boxes) => {
+        boxes.forEach((nextBox) => {
+          emitEvents(nextBox, eventName, data, box, emitEventConfig);
+        });
+      });
       return;
     }
-    const callbackfn = value.value;
-    let removeCallbackfn: boolean = false;
+  }
 
+  const listeners = box.__data.listeners;
+
+  const listenerSetOrCallback = listeners ? listeners.get(eventName) : false;
+
+  if (!listenerSetOrCallback) {
+    emitToRelatives(eventName, box);
+    return;
+  }
+
+  const run = (callbackfn: Function) => {
     const boxEvent = CreateBoxEvent(
       box,
-      type,
+      eventName,
       data,
-      function removeEvent() {
-        removeCallbackfn = true;
-        if (isBroadcastEvent) {
-          removeBoxFromBroadcastList(box);
-        }
-        if (type !== "@listenerAdded" && type !== "@listenerRemoved") {
-          box.emit("@listenerRemoved", null, {
-            props: {
-              listenerRemoved: {
-                type,
-                fn: callbackfn,
-              },
-            },
-          });
-        }
+      () => {
+        removeEvent(box, eventName, callbackfn);
       },
-      broadcastNextBox
+      broadcastNextBox || box
     );
 
     if (emitEventConfig && emitEventConfig.props) {
       Object.assign(boxEvent, emitEventConfig.props);
     }
 
-    callbackfn.call(boxEvent, boxEvent);
-    removeCallbackfn && listenersSet.delete(callbackfn);
-    recursion();
+    const callbackHack =
+      (callbackfn as any).__boxesHackRealCallbackfn || callbackfn;
+
+    callbackHack.call(boxEvent, boxEvent);
   };
-  recursion();
+
+  if (listenerSetOrCallback instanceof Set) {
+    for (const fn of listenerSetOrCallback) {
+      run(fn);
+    }
+  } else {
+    run(listenerSetOrCallback);
+  }
+  emitToRelatives(eventName, box);
 }

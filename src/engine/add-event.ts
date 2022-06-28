@@ -1,50 +1,44 @@
-import { addBoxToBroadcastList } from "./emit-events";
 import { NormalBox } from "../types/normal-box";
-import { EVENTS_PREFIX } from "../globals";
-import onChangeBoxesChildren from "./on-change-boxes-children";
+import { EVENTS_PREFIXES } from "../globals";
+import { addBoxToBroadcastStore } from "./broadcast-store";
+import { addToListenersStore } from "./listeners-store";
 
-export function addEvent(box: NormalBox, type: string, callbackfn: Function) {
-  if (!box.listeners) {
-    box.listeners = {};
+export function addEvent(
+  box: NormalBox,
+  eventName: string,
+  callbackfn: Function
+) {
+  const data = box.__data;
+
+  addToListenersStore(box, eventName);
+
+  if (data.listeners) {
+    const eventSetOrCallbackfn = data.listeners.get(eventName);
+
+    if (eventSetOrCallbackfn) {
+      if (eventSetOrCallbackfn instanceof Set) {
+        eventSetOrCallbackfn.add(callbackfn);
+      } else {
+        data.listeners.set(
+          eventName,
+          new Set<Function>().add(eventSetOrCallbackfn).add(callbackfn)
+        );
+      }
+    } else {
+      data.listeners.set(eventName, callbackfn);
+    }
+  } else {
+    data.listeners = new Map().set(eventName, callbackfn);
   }
-  if (!box.listeners[type]) {
-    box.listeners[type] = new Set();
+
+  if (eventName.substring(0, 1) === EVENTS_PREFIXES.broadcast) {
+    addBoxToBroadcastStore(eventName, box);
   }
-  box.listeners[type].add(callbackfn as any);
-
-  if (type.substring(0, 1) === EVENTS_PREFIX.broadcast) {
-    addBoxToBroadcastList(box);
-  } else if (type === "@deepChanges") {
-    onChangeBoxesChildren(box, (allBoxesChanged: Set<NormalBox>) => {
-      const boxes = [...allBoxesChanged];
-
-      box.emit("@deepChanges", null, {
-        props: {
-          changedBoxes: boxes,
-          onlyChanged: (check: NormalBox | string | (NormalBox | string)[]) => {
-            const notIgnore = Array.isArray(check) ? check : [check];
-
-            if (notIgnore.length > boxes.length) {
-              return false;
-            }
-
-            for (const box of boxes) {
-              if (!notIgnore.includes(box) && !notIgnore.includes(box.type)) {
-                return false;
-              }
-            }
-
-            return true;
-          },
-        },
-      });
-    });
-  }
-  if (type !== "@listenerAdded" && type !== "@listenerRemoved") {
+  if (eventName !== "@listenerAdded" && eventName !== "@listenerRemoved") {
     box.emit("@listenerAdded", null, {
       props: {
         listenerAdded: {
-          type,
+          eventName,
           fn: callbackfn,
         },
       },

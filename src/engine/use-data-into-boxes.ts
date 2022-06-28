@@ -1,25 +1,25 @@
 import { NormalBox } from "./../types/normal-box";
-import ignoreBoxes from "./ignore-boxes";
+import notIgnoreBox from "./not-ignore-box";
 
 function dataIntoBoxes(arrayOrBox: any, ignore?: (NormalBox | string)[]): any {
   if (Array.isArray(arrayOrBox)) {
     return arrayOrBox.map((item) => {
-      if (ignoreBoxes(item, ignore)) {
-        return dataIntoBoxes((item as any).get(), ignore);
+      if (notIgnoreBox(item, ignore)) {
+        return (item as NormalBox).getDataInBoxes(ignore);
       }
       return item;
     });
   }
-  if (ignoreBoxes(arrayOrBox, ignore)) {
-    return dataIntoBoxes((arrayOrBox as NormalBox).get(), ignore);
+  if (notIgnoreBox(arrayOrBox, ignore)) {
+    return (arrayOrBox as NormalBox).getDataInBoxes(ignore);
   }
 
   return arrayOrBox;
 }
 
-export default function getDataIntoBoxes(
+export default function getDataInBoxes(
   values: any,
-  ignoreBoxes?: (NormalBox | string)[]
+  notIgnoreBox?: (NormalBox | string)[]
 ) {
-  return dataIntoBoxes(values, ignoreBoxes);
+  return dataIntoBoxes(values, notIgnoreBox);
 }

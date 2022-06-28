@@ -1,115 +1,57 @@
-import { EVENTS_PREFIX } from "./../globals";
-import {
-  NormalBox,
-  NormalBoxEvent,
-  EmitEventConfig,
-} from "../types/normal-box";
-import isArray from "../utilities/is-array";
+import { LISTENERS_STORE } from "./listeners-store";
+import { EVENTS_PREFIXES } from "./../globals";
+import { NormalBox, BoxEventMap, EmitEventConfig } from "../types/normal-box";
 import { addEvent } from "./add-event";
-import { emitEvents, removeBoxFromBroadcastList } from "./emit-events";
+import { emitEvents } from "./emit-events";
 import removeWhitespaces from "../utilities/remove-whitespaces";
 import useDataIntoBoxes from "./use-data-into-boxes";
-function splitWithSpace(type: string) {
-  return removeWhitespaces(type).trim().split(" ");
+import runSet from "./run-set";
+import runNormalize from "./run-normalize";
+import { removeBoxFromBroadcastStore } from "./broadcast-store";
+import getChildrenForTreeEmit from "./get-children-for-tree-emit";
+import resetCacheDataIntoBoxes from "./reset-cache-data-into-boxes";
+
+function splitWithSpace(eventName: string) {
+  return removeWhitespaces(eventName).trim().split(" ");
 }
+
+const normalWrapper = new Set<string>().add("normal");
+
 export const NormalBoxProps: Partial<NormalBox> = {
-  type: "normal",
+  wrappers: normalWrapper,
   isBox: true,
   get(this: NormalBox) {
-    this.emit("@beforeGet");
-    return this.__data.content;
+    return this.__data.contents;
   },
 
   set(
     this: NormalBox,
-    callbackfn: (currentValue: any, event: NormalBoxEvent) => any,
-    type?: string
+    callbackfn: (currentValue: any, event: BoxEventMap["*"]) => any,
+    eventName?: string
   ) {
-    const data = this.__data;
-    const run = (e?: NormalBoxEvent) => {
-      const content = data.content;
-
-      this.emit("@beforeSet");
-      this.emit("@beforeChange");
-
-      data.content = callbackfn(content, e as any);
-
-      this.emit("@normalize");
-      this.emit("@seted");
-      this.emit("@changed");
-      data.cacheDataIntoBoxes = undefined;
-    };
-
-    //! Gambiarra temporária
-    run.originalCallbackfn = callbackfn;
-
-    if (typeof type === "string") {
-      addEvent(this, type, run);
+    if (typeof eventName === "string") {
+      addEvent(this, eventName, (e: any) => {
+        runSet(this, callbackfn, e);
+      });
     } else {
-      run();
+      runSet(this, callbackfn);
     }
 
     return this;
   },
-  has(this: NormalBox, value: any) {
-    const content = this.__data.content;
-    if (Array.isArray(content)) {
-      return content.includes(value);
-    }
-    return Object.is(content, value);
-  },
+
   normalize(
     this: NormalBox,
-    callbackfn: (currentValue: any, event: NormalBoxEvent) => any,
-    type?: string
+    callbackfn: (currentValue: any, event: BoxEventMap["*"]) => any,
+    eventName?: string
   ) {
-    const data = this.__data;
-    const run = (e?: NormalBoxEvent) => {
-      const content = data.content;
-      this.emit("@beforeNormalize");
-
-      data.content = callbackfn(content, e as any);
-
-      this.emit("@normalized");
-      data.cacheDataIntoBoxes = undefined;
-    };
-
-    //! Gambiarra temporária
-    run.originalCallbackfn = callbackfn;
-
-    if (typeof type === "string") {
-      addEvent(this, type, run);
+    if (typeof eventName === "string") {
+      addEvent(this, eventName, (e: any) => {
+        runNormalize(this, callbackfn, e);
+      });
     } else {
-      run();
+      runNormalize(this, callbackfn);
     }
-
-    return this;
-  },
-
-  setIndex(this: NormalBox, ...args: (number & any)[]) {
-    this.emit("@beforeSet");
-    this.emit("@beforeChange");
-    const content = this.__data.content;
-    const wasArray = isArray(content);
-    const newValues = (wasArray ? content : [content]) as any[];
-    const length = newValues.length;
-    let count = 1;
-    while (args[count]) {
-      if (args[count - 1] < length) {
-        newValues[args[count - 1]] = args[count];
-      } else {
-        // TODO Adicinar um aviso de index maior que o número de elementos
-      }
-      count += 2;
-    }
-
-    this.__data.content =
-      wasArray || newValues.length > 1 ? newValues : newValues[0];
-
-    this.emit("@normalize");
-    this.emit("@seted");
-    this.emit("@changed");
-    this.__data.cacheDataIntoBoxes = undefined;
 
     return this;
   },
@@ -117,43 +59,65 @@ export const NormalBoxProps: Partial<NormalBox> = {
   change(this: NormalBox, ...newValues: any[]) {
     this.emit("@beforeChange");
 
-    this.__data.content = newValues[1] ? newValues : newValues[0];
+    this.__data.contents = newValues[1] ? newValues : newValues[0];
+    resetCacheDataIntoBoxes(this);
+
     this.emit("@normalize");
     this.emit("@changed");
-    this.__data.cacheDataIntoBoxes = undefined;
 
     return this;
   },
-  getDataIntoBoxes(
-    this: NormalBox,
-    ignoreBoxes?: NormalBox | string | (NormalBox | string)[]
-  ) {
-    if (this.__data.cacheDataIntoBoxes) {
-      return this.__data.cacheDataIntoBoxes;
+  has(this: NormalBox, value: any) {
+    const contents = this.__data.contents;
+    if (Array.isArray(contents)) {
+      return new Set(contents).has(value);
     }
+    return Object.is(contents, value);
+  },
+  getDataInBoxes(
+    this: NormalBox,
+    ignore?: NormalBox | string | (NormalBox | string)[]
+  ) {
     const value = useDataIntoBoxes(
-      this.__data.content,
-      ignoreBoxes
-        ? Array.isArray(ignoreBoxes)
-          ? ignoreBoxes
-          : [ignoreBoxes]
-        : undefined
+      this.__data.contents,
+      ignore ? (Array.isArray(ignore) ? ignore : [ignore]) : undefined
     );
     this.__data.cacheDataIntoBoxes = value;
     return value;
   },
-
+  getListeners(this: NormalBox) {
+    return this.__data.listeners;
+  },
   emit(
     this: NormalBox,
-    type: string,
+    eventName: string,
     data?: any,
     emitEventConfig?: EmitEventConfig
   ) {
-    emitEvents(this, type, data, null, emitEventConfig);
+    emitEvents(this, eventName, data, null, emitEventConfig);
     return this;
   },
-  on(this: NormalBox, type: string, callbackfn: (boxEvent: any) => void) {
-    splitWithSpace(type).forEach((t) => {
+
+  treeEmit(
+    this: NormalBox,
+    eventName: string,
+    data?: any,
+    emitEventConfig?: EmitEventConfig
+  ) {
+    const boxes = getChildrenForTreeEmit(this, eventName);
+
+    if (boxes) {
+      for (const box of boxes) {
+        box.emit(eventName, data, emitEventConfig);
+        box.treeEmit(eventName, data, emitEventConfig);
+      }
+    }
+
+    return this;
+  },
+
+  on(this: NormalBox, eventName: string, callbackfn: (boxEvent: any) => void) {
+    splitWithSpace(eventName).forEach((t) => {
       const eventName = t;
       if (eventName) {
         addEvent(this, eventName, callbackfn);
@@ -161,36 +125,48 @@ export const NormalBoxProps: Partial<NormalBox> = {
     });
     return this;
   },
-  off(this: NormalBox, type: string, callbackfn: Function) {
-    const listeners = this.listeners;
-    if (!listeners) return this;
-    splitWithSpace(type).forEach((t) => {
+
+  off(this: NormalBox, eventName: string, callbackfn: Function) {
+    splitWithSpace(eventName).forEach((t) => {
       const eventName = t;
-      if (!listeners[eventName]) {
+      const listeners = this.__data.listeners;
+
+      if (!listeners) {
         return;
       }
-      const fn = [...listeners[eventName]].find(
-        (c) => c === callbackfn || (c as any).originalCallbackfn === callbackfn
-      );
 
-      if (fn) {
-        if (eventName.substring(0, 1) === EVENTS_PREFIX.broadcast) {
-          removeBoxFromBroadcastList(this);
+      const listenerSetOrCallback = listeners.get(eventName);
+      if (!listenerSetOrCallback) {
+        return;
+      }
+      if (
+        listenerSetOrCallback instanceof Set &&
+        listenerSetOrCallback.has(callbackfn)
+      ) {
+        listenerSetOrCallback.delete(callbackfn);
+        if (listenerSetOrCallback.size === 0) {
+          LISTENERS_STORE.delete(eventName);
         }
-        listeners[eventName].delete((fn as any).originalCallbackfn || fn);
-        if (
-          eventName !== "@listenerAdded" &&
-          eventName !== "@listenerRemoved"
-        ) {
-          this.emit("@listenerRemoved", null, {
-            props: {
-              listenerRemoved: {
-                type: eventName,
-                fn: (fn as any).originalCallbackfn || fn,
-              },
+      } else if (listenerSetOrCallback === callbackfn) {
+        listeners.delete(eventName);
+        LISTENERS_STORE.delete(eventName);
+      } else {
+        return;
+      }
+
+      if (eventName.substring(0, 1) === EVENTS_PREFIXES.broadcast) {
+        removeBoxFromBroadcastStore(eventName, this);
+      }
+
+      if (eventName !== "@listenerAdded" && eventName !== "@listenerRemoved") {
+        this.emit("@listenerRemoved", null, {
+          props: {
+            listenerRemoved: {
+              eventName: eventName,
+              fn: callbackfn,
             },
-          });
-        }
+          },
+        });
       }
     });
 

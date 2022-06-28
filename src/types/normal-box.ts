@@ -1,173 +1,255 @@
-import { BoxesTypeConfig } from "./boxes-type-config";
 import { NormalBoxEvents } from "./events";
-
-type NormalBoxConfig<BoxContent> = {
-  type: NormalBox<BoxContent>;
-  event: Required<NormalBoxEvent>;
-  eventsList: NormalBoxEvents;
-  eventMap: BoxEventMap;
-};
-
-export type NormalBoxEvent<
-  BoxTypeConfig extends BoxesTypeConfig = BoxesTypeConfig
+export type BoxEvent<
+  Box extends object = NormalBox,
+  BoxEventMap extends Record<string, any> = NormalBoxEventMap
 > = {
-  type: (keyof WindowEventMap | BoxTypeConfig["eventsList"] | String) & string;
+  /** The name(type) of the event. */
+  eventName: keyof BoxEventMap | String;
+  /** The data emitted through the event. */
   data: any | null;
-  box: BoxTypeConfig["type"];
-  broadcastBox: BoxTypeConfig["type"] | null;
+  /** The box listening to the event. */
+  box: Box;
+  /** The box that triggered the event. */
+  triggerBox: Box;
+  /** Removes event listener.*/
   off(): void;
 };
 
-export type DeepChangesBoxEvent<
-  BoxTypeConfig extends BoxesTypeConfig = BoxesTypeConfig
-> = NormalBoxEvent<BoxTypeConfig> & {
-  onlyChanged: (...args: (BoxTypeConfig["type"] | string)[]) => boolean;
-  changedBoxes: BoxTypeConfig["type"][];
-};
-
 export type ListenerAddedBoxEvent<
-  BoxTypeConfig extends BoxesTypeConfig = BoxesTypeConfig
-> = NormalBoxEvent<BoxTypeConfig> & {
+  Box extends object = NormalBox,
+  EventMap extends Record<string, any> = NormalBoxEventMap
+> = BoxEventMap<Box>["*"] & {
+  /** An object with added event-related properties. */
   listenerAdded: {
-    type: BoxTypeConfig["eventsList"];
+    /** The name(type) of the event. */
+    eventName: keyof EventMap | String;
+    /** The callbackfn. */
     fn: Function;
   };
 };
 
 export type ListenerRemovedBoxEvent<
-  BoxTypeConfig extends BoxesTypeConfig = BoxesTypeConfig
-> = NormalBoxEvent<BoxTypeConfig> & {
+  Box extends object = NormalBox,
+  EventMap extends Record<string, any> = NormalBoxEventMap
+> = BoxEventMap<Box>["*"] & {
+  /** An object with removed event-related properties. */
   listenerRemoved: {
-    type: BoxTypeConfig["eventsList"];
+    /** The name(type) of the event. */
+    eventName: keyof EventMap | String;
+    /** The callbackfn. */
     fn: Function;
   };
 };
 
 export type NormalBoxInternalData = {
-  content: any | null;
-  cacheDataIntoBoxes: undefined | any;
+  /** The contents of the box. */
+  contents: any | null;
+  /** Cache the value returned from @method getDataInBoxes().*/
+  cacheDataIntoBoxes?: any;
+  /** All box parents at all levels. */
+  relatives?: Set<NormalBox>;
+  /** Listeners added to the box. */
+  listeners?: Map<string, Function | Set<Function>>;
 };
 
 export type EmitEventConfig = {
+  /** Properties that will be injected directly into the event object. */
   props?: Record<string, any>;
 };
 
-export interface BoxEventMap<
-  BoxTypeConfig extends BoxesTypeConfig = BoxesTypeConfig
-> {
-  "@deepChanges": DeepChangesBoxEvent<BoxTypeConfig>;
+type AllEvents<Box extends object = NormalBox> = {
+  [K in NormalBoxEvents]: BoxEvent<Box>;
+};
+export interface NormalBoxEventMap
+  extends Omit<
+    AllEvents,
+    "@changed[tree]" | "@listenerAdded" | "@listenerAdded"
+  > {
+  "@changed[tree]": BoxEvent;
 
-  "@listenerAdded": ListenerAddedBoxEvent<BoxTypeConfig>;
+  "@listenerAdded": ListenerAddedBoxEvent;
 
-  "@listenerRemoved": ListenerRemovedBoxEvent<BoxTypeConfig>;
+  "@listenerRemoved": ListenerRemovedBoxEvent;
+  "*": BoxEvent;
 }
+export interface BoxEventMap<
+  Box extends object = NormalBox,
+  EventMap extends Record<string, any> = NormalBoxEventMap
+> extends Omit<
+    AllEvents<Box>,
+    "@changed[tree]" | "@listenerAdded" | "@listenerAdded"
+  > {
+  "@changed[tree]": BoxEvent<Box, EventMap>;
+
+  "@listenerAdded": ListenerAddedBoxEvent<Box, EventMap>;
+
+  "@listenerRemoved": ListenerRemovedBoxEvent<Box, EventMap>;
+  "*": BoxEvent<Box, EventMap>;
+}
+
 export interface NormalBox<
   BoxContent = any,
-  BoxTypeConfig extends BoxesTypeConfig = NormalBoxConfig<BoxContent>
+  EventMap extends Record<string, any> = NormalBoxEventMap
 > {
-  (newValue: BoxContent): BoxTypeConfig["type"];
-  (...newValues: BoxContent[]): BoxTypeConfig["type"];
+  /**  Adds new values ​​to the box.*/
+  (...newValues: BoxContent[]): this;
 
+  /**
+   * The data necessary for the functioning of the library.
+   * @protected
+   * */
   __data: NormalBoxInternalData;
 
-  listeners?: Record<string, Set<(event: BoxTypeConfig["event"]) => void>>;
+  /** The types of wrapper that wrap the box. */
+  wrappers: Set<string>;
 
-  type: string;
+  /** Useful for checking if the function is a box.*/
+  readonly isBox: true;
 
-  isBox: true;
+  /** The unique identifier for each box. */
+  readonly id: number;
 
-  id: number;
-
-  set(callbackfn: (currentValue: any) => any): BoxTypeConfig["type"];
-
-  set(
-    callbackfn: (currentValue: any, event: BoxTypeConfig["event"]) => any,
-    type: BoxTypeConfig["eventsList"]
-  ): BoxTypeConfig["type"];
-
-  set<C extends Function, K extends keyof BoxTypeConfig["eventMap"]>(
-    callbackfn: (currentValue: any, event: BoxTypeConfig["event"]) => any,
-    type: K
-  ): BoxTypeConfig["type"];
+  /**
+   * Sets the new value for the box.
+   * @param callbackfn
+   * A callbackfn that takes the current value of the box and must return the new value.
+   * @param eventName
+   * Conditions the callbackfn to be invoked only after the event.
+   */
+  set(callbackfn: (currentValue: any) => any): this;
 
   set(
-    callbackfn: (currentValue: any, event: BoxTypeConfig["event"]) => any,
-    type: string
-  ): BoxTypeConfig["type"];
+    callbackfn: (currentValue: any, event: EventMap["*"]) => any,
+    eventName: keyof EventMap
+  ): this;
 
-  normalize(callbackfn: (currentValue: any) => any): BoxTypeConfig["type"];
+  set<C extends Function, K extends keyof EventMap>(
+    callbackfn: (currentValue: any, event: EventMap[K]) => any,
+    eventName: K
+  ): this;
+
+  set(
+    callbackfn: (currentValue: any, event: EventMap["*"]) => any,
+    eventName: string
+  ): this;
+
+  /**
+   * Normalizes the box value.
+   * @param callbackfn
+   * A callbackfn that takes the current value of the box and must return the new value.
+   * @param eventName
+   * Conditions the callbackfn to be invoked only after the event.
+   *
+   * * This method is similar to the set() method, but it does not tigger the "@changed" event.
+   */
+  normalize(callbackfn: (currentValue: any) => any): this;
 
   normalize(
-    callbackfn: (currentValue: any, event: BoxTypeConfig["event"]) => any,
-    type: BoxTypeConfig["eventsList"]
-  ): BoxTypeConfig["type"];
+    callbackfn: (currentValue: any, event: EventMap["*"]) => any,
+    eventName: keyof EventMap
+  ): this;
 
-  normalize<C extends Function, K extends keyof BoxTypeConfig["eventMap"]>(
-    callbackfn: (currentValue: any, event: BoxTypeConfig["event"]) => any,
-    type: K
-  ): BoxTypeConfig["type"];
+  normalize<C extends Function, K extends keyof EventMap>(
+    callbackfn: (currentValue: any, event: EventMap[K]) => any,
+    eventName: K
+  ): this;
 
   normalize(
-    callbackfn: (currentValue: any, event: BoxTypeConfig["event"]) => any,
-    type: string
-  ): BoxTypeConfig["type"];
+    callbackfn: (currentValue: any, event: EventMap["*"]) => any,
+    eventName: string
+  ): this;
 
-  setIndex(...args: (number | unknown)[]): BoxTypeConfig["type"];
-
+  /** Gets the current value of the box. */
   get(): any;
 
-  change(...newValue: any[]): BoxTypeConfig["type"];
+  /** Changes the current value of the box. */
+  change(...newValue: any[]): this;
 
+  /** Checks if a certain value exists in the box.*/
   has(value: any): boolean;
 
-  getDataIntoBoxes(
-    ignoreBoxes?: NormalBox | string | (NormalBox | string)[]
-  ): any;
+  /**
+   * Gets the current value of the box by removing child boxes and keeping their values.
+   * @param ignore
+   * The boxes that should be kept in the return value.
+   */
+  getDataInBoxes(ignore?: NormalBox | string | (NormalBox | string)[]): any;
 
-  on<K extends keyof BoxTypeConfig["eventMap"]>(
-    type: K,
-    callbackfn: (
-      this: BoxTypeConfig["eventMap"][K],
-      boxEvent: BoxTypeConfig["eventMap"][K]
-    ) => void
-  ): BoxTypeConfig["type"];
+  /** Gets the listeners added to the box. */
+  getListeners(): Map<string, Function | Set<Function>> | undefined;
+
+  /**
+   * Adds event listeners.
+   * @param eventName
+   * The name(type) of the event.
+   * @param callbackfn
+   * The callbackfn to invoke when the event tigger.
+   */
+  on<K extends Exclude<keyof EventMap, "*">>(
+    eventName: K,
+    callbackfn: (this: EventMap[K], boxEvent: EventMap[K]) => void
+  ): this;
 
   on(
-    type: BoxTypeConfig["eventsList"],
-    callbackfn: (
-      this: BoxTypeConfig["event"],
-      boxEvent: BoxTypeConfig["event"]
-    ) => void
-  ): BoxTypeConfig["type"];
+    eventName: keyof EventMap,
+    callbackfn: (this: EventMap["*"], boxEvent: EventMap["*"]) => void
+  ): this;
 
   on(
-    type: string,
-    callbackfn: (
-      this: BoxTypeConfig["event"],
-      boxEvent: BoxTypeConfig["event"]
-    ) => void
-  ): BoxTypeConfig["type"];
+    eventName: string,
+    callbackfn: (this: EventMap["*"], boxEvent: EventMap["*"]) => void
+  ): this;
 
-  off(
-    type: BoxTypeConfig["eventsList"],
-    callbackfn: Function
-  ): BoxTypeConfig["type"];
+  /**
+   * Removes event listeners.
+   * @param eventName
+   * The name(type) of the event.
+   * @param callbackfn
+   * The callbackfn used to listen for the event.
+   */
+  off(eventName: keyof EventMap, callbackfn: Function): this;
 
-  off(type: string, callbackfn: Function): BoxTypeConfig["type"];
+  off(eventName: string, callbackfn: Function): this;
 
+  /**
+   * Emits events.
+   * @param eventName
+   * The name(type) of the event.
+   * @param data
+   * The data that will be available through the "data" property of the event object.
+   * @param emitEventConfig
+   * Configures event emission.
+   */
   emit(
-    type: BoxTypeConfig["eventsList"],
+    eventName: keyof EventMap,
     data?: any,
     emitEventConfig?: EmitEventConfig
-  ): BoxTypeConfig["type"];
-  emit(
-    type: string,
+  ): this;
+  emit(eventName: string, data?: any, emitEventConfig?: EmitEventConfig): this;
+  emit(eventName: String, data?: any, emitEventConfig?: EmitEventConfig): this;
+
+  /**
+   * Emits events through the box's child tree.
+   * @param eventName
+   * The name(type) of the event.
+   * @param data
+   * The data that will be available through the "data" property of the event object.
+   * @param emitEventConfig
+   * Configures event emission.
+   */
+  treeEmit(
+    eventName: keyof EventMap,
     data?: any,
     emitEventConfig?: EmitEventConfig
-  ): BoxTypeConfig["type"];
-  emit(
-    type: String,
+  ): this;
+  treeEmit(
+    eventName: string,
     data?: any,
     emitEventConfig?: EmitEventConfig
-  ): BoxTypeConfig["type"];
+  ): this;
+  treeEmit(
+    eventName: String,
+    data?: any,
+    emitEventConfig?: EmitEventConfig
+  ): this;
 }

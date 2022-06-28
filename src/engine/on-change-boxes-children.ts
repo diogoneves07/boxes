@@ -1,33 +1,21 @@
-import { NormalBox, BoxEventMap } from "./../types/normal-box";
-type WapperCallbackfn = {
-  wasCall?: boolean;
-  allBoxesChanged?: Set<NormalBox>;
+import { NormalBox, NormalBoxEventMap } from "./../types/normal-box";
 
-  (): void;
-};
-
-function addListener(box: NormalBox, wapperCallbackfn: WapperCallbackfn) {
+function addListener(
+  box: NormalBox,
+  callbackfn: (BoxChanged: NormalBox) => void
+) {
   function fn() {
-    if (!wapperCallbackfn.allBoxesChanged) {
-      wapperCallbackfn.allBoxesChanged = new Set();
-    }
-    wapperCallbackfn.allBoxesChanged.add(box);
-    if (!wapperCallbackfn.wasCall) {
-      wapperCallbackfn.wasCall = true;
-      setTimeout(() => {
-        wapperCallbackfn();
-      });
-    }
+    callbackfn(box);
   }
   box.on("@changed", fn);
   return fn;
 }
 function addListeners(
   box: NormalBox,
-  wapperCallbackfn: WapperCallbackfn,
+  callbackfn: (BoxChanged: NormalBox) => void,
   lastAllListeners?: Map<NormalBox, Function>
 ) {
-  const content = box.__data.content;
+  const contents = box.__data.contents;
 
   let allListeners: Map<NormalBox, Function> | undefined;
 
@@ -41,54 +29,46 @@ function addListeners(
 
         allListeners.set(
           value,
-          previousCallbackfn || addListener(value, wapperCallbackfn)
+          previousCallbackfn || addListener(value, callbackfn)
         );
 
         if (previousCallbackfn) {
           lastAllListeners.delete(value);
         }
       } else {
-        allListeners.set(value, addListener(value, wapperCallbackfn));
+        allListeners.set(value, addListener(value, callbackfn));
       }
     }
   };
 
-  Array.isArray(content) ? content.forEach(run) : run(content);
+  Array.isArray(contents) ? contents.forEach(run) : run(contents);
 
   return [allListeners, lastAllListeners];
 }
 export default function onChangeBoxesChildren(
   box: NormalBox,
-  callbackfn: (allBoxesChanged: Set<NormalBox>) => void
+  callbackfn: (BoxChanged: NormalBox) => void
 ): any {
-  const wapperCallbackfn: WapperCallbackfn = () => {
-    const allBoxesChanged = wapperCallbackfn.allBoxesChanged;
-    wapperCallbackfn.wasCall = false;
-    wapperCallbackfn.allBoxesChanged = new Set();
-
-    callbackfn(allBoxesChanged as Set<NormalBox>);
-  };
-  let allListeners = addListeners(box, wapperCallbackfn)[0];
-  if (!allListeners) {
-    return;
-  }
+  return;
+  let allListeners = addListeners(box, callbackfn)[0] || new Map();
 
   const removeOnChangeBoxesChildren = () => {
-    allListeners?.forEach((item) => item());
+    allListeners.forEach((item) => item());
     box.off("@listenerRemoved", checklistenerRemoved);
     box.off("@changed", changedBoxValues);
   };
-  const checklistenerRemoved = (e: BoxEventMap["@listenerRemoved"]) => {
-    if (e.listenerRemoved.type === "@deepChanges") {
+  const checklistenerRemoved = (e: NormalBoxEventMap["@listenerRemoved"]) => {
+    if (e.listenerRemoved.eventName === "@treeChanged") {
       removeOnChangeBoxesChildren();
     }
   };
+
   let waitingTimeout: boolean = false;
   const changedBoxValues = () => {
     if (!waitingTimeout) {
       setTimeout(() => {
-        const values = addListeners(box, wapperCallbackfn, allListeners);
-        allListeners = values[0];
+        const values = addListeners(box, callbackfn, allListeners);
+        allListeners = values[0] as any;
 
         if (values[1]) {
           values[1].forEach((item) => item());
