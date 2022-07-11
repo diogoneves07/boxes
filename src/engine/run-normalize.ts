@@ -10,10 +10,10 @@ export default function runNormalize(
 
   const contents = data.contents;
 
-  // box.emit("@beforeNormalize");
+  box.emit("@beforeNormalize");
 
   data.contents = callbackfn(contents, e as any);
   resetCacheDataIntoBoxes(box);
 
-  // box.emit("@normalized");
+  box.emit("@normalized");
 }

@@ -1,16 +1,16 @@
 {
-  "name": "boxes",
+  "name": "box",
   "version": "0.0.0",
   "private": true,
   "files": [
     "dist"
   ],
-  "main": "./dist/boxes.umd.js",
-  "module": "./dist/boxes.es.js",
+  "main": "./dist/box.umd.js",
+  "module": "./dist/box.es.js",
   "exports": {
     ".": {
-      "import": "./dist/boxes.es.js",
-      "require": "./dist/boxes.umd.js"
+      "import": "./dist/box.es.js",
+      "require": "./dist/box.umd.js"
     }
   },
   "scripts": {

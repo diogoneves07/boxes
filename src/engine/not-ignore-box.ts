@@ -1,4 +1,5 @@
 import { NormalBox } from "../types/normal-box";
+import hasOwnProperty from "../utilities/hasOwnProperty";
 /**
  * Checks if the box should not be ignored.
  */
@@ -6,7 +7,7 @@ export default function notIgnoreBox(
   value: any,
   ignore?: (string | NormalBox)[]
 ) {
-  const isBox = value && (value as NormalBox).isBox;
+  const isBox = hasOwnProperty(value, "isBox");
   return isBox &&
     (!ignore ||
       !ignore.find(

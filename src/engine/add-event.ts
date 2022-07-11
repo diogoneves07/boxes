@@ -1,6 +1,5 @@
+import { CHECK_EVENT_RESULT_CACHE } from "./emit-events";
 import { NormalBox } from "../types/normal-box";
-import { EVENTS_PREFIXES } from "../globals";
-import { addBoxToBroadcastStore } from "./broadcast-store";
 import { addToListenersStore } from "./listeners-store";
 
 export function addEvent(
@@ -8,6 +7,8 @@ export function addEvent(
   eventName: string,
   callbackfn: Function
 ) {
+  CHECK_EVENT_RESULT_CACHE.delete(eventName);
+
   const data = box.__data;
 
   addToListenersStore(box, eventName);
@@ -31,9 +32,6 @@ export function addEvent(
     data.listeners = new Map().set(eventName, callbackfn);
   }
 
-  if (eventName.substring(0, 1) === EVENTS_PREFIXES.broadcast) {
-    addBoxToBroadcastStore(eventName, box);
-  }
   if (eventName !== "@listenerAdded" && eventName !== "@listenerRemoved") {
     box.emit("@listenerAdded", null, {
       props: {

@@ -1,8 +1,6 @@
 import { LISTENERS_STORE } from "./listeners-store";
 import { EVENTS_PREFIXES } from "../globals";
 import { NormalBox, EmitEventConfig } from "../types/normal-box";
-import { BROADCAST_STORE } from "./broadcast-store";
-import createLinkAmoungRelatives from "./create-link-amoung-relatives";
 
 function CreateBoxEvent(
   box: NormalBox,
@@ -11,10 +9,19 @@ function CreateBoxEvent(
   off: () => void,
   triggerBox: NormalBox
 ) {
+  let eventNameWithoutFlag = eventName;
+  const flagInitIndex = eventNameWithoutFlag.indexOf("[");
+  let flag = "[normal]";
+  if (flagInitIndex > -1) {
+    const splitFlag = eventNameWithoutFlag.split("[");
+    eventNameWithoutFlag = splitFlag[0];
+    flag = "[" + splitFlag[1];
+  }
   return {
     box,
-    eventName,
+    eventName: eventNameWithoutFlag,
     off,
+    flag,
     triggerBox,
     data,
   };
@@ -23,26 +30,73 @@ function removeEvent(box: NormalBox, eventName: string, callbackfn: Function) {
   box.off(eventName, callbackfn);
 }
 
-function emitToRelatives(eventName: string, box: NormalBox) {
-  const treeEventName = `${eventName}[tree]`;
-  const boxes = LISTENERS_STORE.get(treeEventName);
+const OBSERVE_CHILDREN_FLAGS = ["tree", "nodes"];
 
-  if (boxes) {
-    createLinkAmoungRelatives(box);
+function emitToFathers(eventName: string, box: NormalBox) {
+  const possibleObservers = box.__data.possibleObservers;
 
-    const relatives = box.__data.relatives;
+  let emitConfig: Parameters<typeof box.emit>[2] = {
+    props: { triggerBox: box },
+  };
 
-    if (relatives) {
-      for (const relative of relatives) {
-        if (boxes.has(relative)) {
-          relative.emit(treeEventName, null, {
-            props: { triggerBox: box },
-          });
+  box.emit(`${eventName}[tree]`, null, emitConfig);
+
+  if (!possibleObservers || possibleObservers.size === 0) {
+    return;
+  }
+
+  for (const flag of OBSERVE_CHILDREN_FLAGS) {
+    const eventNameWithFlag = `${eventName}[${flag}]`;
+    const boxes = LISTENERS_STORE.get(eventNameWithFlag);
+
+    if (!boxes) continue;
+
+    const loopPossibleObservers = (
+      currentPossibleObservers: typeof possibleObservers
+    ) => {
+      for (const o of currentPossibleObservers) {
+        if (o !== box && boxes.has(o)) {
+          o.emit(eventNameWithFlag, null, emitConfig);
+        }
+        if (o.__data.possibleObservers && o.__data.possibleObservers.size) {
+          loopPossibleObservers(o.__data.possibleObservers);
         }
       }
+    };
+    loopPossibleObservers(possibleObservers);
+  }
+}
+
+function emitToAll(eventName: string, box: NormalBox) {
+  const eventNameWithFlag = `${eventName}[all]`;
+  const boxes = LISTENERS_STORE.get(eventNameWithFlag);
+
+  if (!boxes) return;
+
+  const emitConfig = {
+    props: { triggerBox: box },
+  };
+
+  box.emit(eventNameWithFlag, null, emitConfig);
+
+  for (const b of boxes) {
+    if (b !== box) {
+      b.emit(eventNameWithFlag, null, emitConfig);
     }
   }
 }
+export const CHECK_EVENT_RESULT_CACHE = new Map<string, any>();
+function hasObserver(eventName: string) {
+  if (eventName.includes("[")) {
+    return false;
+  }
+  return (
+    LISTENERS_STORE.has(`${eventName}[tree]`) ||
+    LISTENERS_STORE.has(`${eventName}[nodes]`) ||
+    LISTENERS_STORE.has(`${eventName}[all]`)
+  );
+}
+
 export function emitEvents(
   box: NormalBox,
   eventName: string,
@@ -50,31 +104,44 @@ export function emitEvents(
   broadcastNextBox: NormalBox | null = null,
   emitEventConfig?: EmitEventConfig
 ) {
-  if (!LISTENERS_STORE.has(eventName)) {
-    emitToRelatives(eventName, box);
+  if (LISTENERS_STORE.size === 0) {
     return;
   }
 
-  if (!broadcastNextBox) {
-    const isBroadcastEvent =
-      eventName.substring(0, 1) === EVENTS_PREFIXES.broadcast;
-
-    if (isBroadcastEvent) {
-      BROADCAST_STORE.forEach((boxes) => {
-        boxes.forEach((nextBox) => {
-          emitEvents(nextBox, eventName, data, box, emitEventConfig);
-        });
-      });
-      return;
+  if (!LISTENERS_STORE.has(eventName)) {
+    if (hasObserver(eventName)) {
+      emitToAll(eventName, box);
+      emitToFathers(eventName, box);
     }
+    return;
+  }
+
+  if (
+    !broadcastNextBox &&
+    eventName.substring(0, 1) === EVENTS_PREFIXES.broadcast
+  ) {
+    LISTENERS_STORE.get(eventName)?.forEach((nextBox) => {
+      emitEvents(nextBox, eventName, data, box, emitEventConfig);
+    });
+    return;
   }
 
   const listeners = box.__data.listeners;
 
   const listenerSetOrCallback = listeners ? listeners.get(eventName) : false;
 
+  if (
+    listenerSetOrCallback instanceof Set &&
+    listenerSetOrCallback.size === 0
+  ) {
+    return;
+  }
+
   if (!listenerSetOrCallback) {
-    emitToRelatives(eventName, box);
+    if (hasObserver(eventName)) {
+      emitToAll(eventName, box);
+      emitToFathers(eventName, box);
+    }
     return;
   }
 
@@ -93,18 +160,16 @@ export function emitEvents(
       Object.assign(boxEvent, emitEventConfig.props);
     }
 
-    const callbackHack =
-      (callbackfn as any).__boxesHackRealCallbackfn || callbackfn;
-
-    callbackHack.call(boxEvent, boxEvent);
+    callbackfn.call(boxEvent, boxEvent);
   };
 
   if (listenerSetOrCallback instanceof Set) {
-    for (const fn of listenerSetOrCallback) {
-      run(fn);
-    }
+    for (const fn of listenerSetOrCallback) run(fn);
   } else {
     run(listenerSetOrCallback);
   }
-  emitToRelatives(eventName, box);
+  if (hasObserver(eventName)) {
+    emitToAll(eventName, box);
+    emitToFathers(eventName, box);
+  }
 }

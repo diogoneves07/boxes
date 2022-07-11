@@ -1,3 +1,4 @@
+import hasOwnProperty from "../utilities/hasOwnProperty";
 import { NormalBox } from "./../types/normal-box";
 function hasInIgnoreBoxes(box: NormalBox, ignoreBoxes: any[]) {
   for (const wrapper of box.wrappers) {
@@ -35,8 +36,11 @@ export function hasBoxes(
       return (
         item &&
         !ignoreBoxesArray.includes(item) &&
-        !(item.isBox && hasInIgnoreBoxes(item, ignoreBoxesArray)) &&
-        item.isBox
+        !(
+          hasOwnProperty(item, "isBox") &&
+          hasInIgnoreBoxes(item, ignoreBoxesArray)
+        ) &&
+        hasOwnProperty(item, "isBox")
       );
     })
       ? true

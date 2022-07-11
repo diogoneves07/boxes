@@ -11,6 +11,9 @@ export type BoxEvent<
   box: Box;
   /** The box that triggered the event. */
   triggerBox: Box;
+
+  flag: "[normal]" | "[all]" | "[nodes]" | "[tree]";
+
   /** Removes event listener.*/
   off(): void;
 };
@@ -47,7 +50,8 @@ export type NormalBoxInternalData = {
   /** Cache the value returned from @method getDataInBoxes().*/
   cacheDataIntoBoxes?: any;
   /** All box parents at all levels. */
-  relatives?: Set<NormalBox>;
+  possibleObservers?: Set<NormalBox> | null;
+
   /** Listeners added to the box. */
   listeners?: Map<string, Function | Set<Function>>;
 };
@@ -61,12 +65,7 @@ type AllEvents<Box extends object = NormalBox> = {
   [K in NormalBoxEvents]: BoxEvent<Box>;
 };
 export interface NormalBoxEventMap
-  extends Omit<
-    AllEvents,
-    "@changed[tree]" | "@listenerAdded" | "@listenerAdded"
-  > {
-  "@changed[tree]": BoxEvent;
-
+  extends Omit<AllEvents, "@listenerAdded" | "@listenerAdded"> {
   "@listenerAdded": ListenerAddedBoxEvent;
 
   "@listenerRemoved": ListenerRemovedBoxEvent;
@@ -75,23 +74,18 @@ export interface NormalBoxEventMap
 export interface BoxEventMap<
   Box extends object = NormalBox,
   EventMap extends Record<string, any> = NormalBoxEventMap
-> extends Omit<
-    AllEvents<Box>,
-    "@changed[tree]" | "@listenerAdded" | "@listenerAdded"
-  > {
-  "@changed[tree]": BoxEvent<Box, EventMap>;
-
+> extends Omit<AllEvents<Box>, "@listenerAdded" | "@listenerAdded"> {
   "@listenerAdded": ListenerAddedBoxEvent<Box, EventMap>;
 
   "@listenerRemoved": ListenerRemovedBoxEvent<Box, EventMap>;
   "*": BoxEvent<Box, EventMap>;
 }
 
-export interface NormalBox<
-  BoxContent = any,
-  EventMap extends Record<string, any> = NormalBoxEventMap
+export interface Boxes<
+  BoxContent extends any,
+  EventMap extends Record<string, any>
 > {
-  /**  Adds new values ​​to the box.*/
+  /**  Push new values ​​to the box.*/
   (...newValues: BoxContent[]): this;
 
   /**
@@ -116,20 +110,20 @@ export interface NormalBox<
    * @param eventName
    * Conditions the callbackfn to be invoked only after the event.
    */
-  set(callbackfn: (currentValue: any) => any): this;
+  set(callbackfn: (currentValue: BoxContent) => BoxContent): this;
 
   set(
-    callbackfn: (currentValue: any, event: EventMap["*"]) => any,
+    callbackfn: (currentValue: BoxContent, event: EventMap["*"]) => BoxContent,
     eventName: keyof EventMap
   ): this;
 
   set<C extends Function, K extends keyof EventMap>(
-    callbackfn: (currentValue: any, event: EventMap[K]) => any,
+    callbackfn: (currentValue: BoxContent, event: EventMap[K]) => BoxContent,
     eventName: K
   ): this;
 
   set(
-    callbackfn: (currentValue: any, event: EventMap["*"]) => any,
+    callbackfn: (currentValue: BoxContent, event: EventMap["*"]) => BoxContent,
     eventName: string
   ): this;
 
@@ -142,28 +136,28 @@ export interface NormalBox<
    *
    * * This method is similar to the set() method, but it does not tigger the "@changed" event.
    */
-  normalize(callbackfn: (currentValue: any) => any): this;
+  normalize(callbackfn: (currentValue: BoxContent) => BoxContent): this;
 
   normalize(
-    callbackfn: (currentValue: any, event: EventMap["*"]) => any,
+    callbackfn: (currentValue: BoxContent, event: EventMap["*"]) => BoxContent,
     eventName: keyof EventMap
   ): this;
 
   normalize<C extends Function, K extends keyof EventMap>(
-    callbackfn: (currentValue: any, event: EventMap[K]) => any,
+    callbackfn: (currentValue: BoxContent, event: EventMap[K]) => BoxContent,
     eventName: K
   ): this;
 
   normalize(
-    callbackfn: (currentValue: any, event: EventMap["*"]) => any,
+    callbackfn: (currentValue: BoxContent, event: EventMap["*"]) => BoxContent,
     eventName: string
   ): this;
 
   /** Gets the current value of the box. */
-  get(): any;
+  get(): BoxContent;
 
   /** Changes the current value of the box. */
-  change(...newValue: any[]): this;
+  new: (...newValue: BoxContent[]) => this;
 
   /** Checks if a certain value exists in the box.*/
   has(value: any): boolean;
@@ -201,6 +195,72 @@ export interface NormalBox<
   ): this;
 
   /**
+   * Adds event listeners.
+   * @param eventName
+   * The name(type) of the event.
+   * @param callbackfn
+   * The callbackfn to invoke when the event tigger.
+   */
+  treeOn<K extends Exclude<keyof EventMap, "*">>(
+    eventName: K,
+    callbackfn: (this: EventMap[K], boxEvent: EventMap[K]) => void
+  ): this;
+
+  treeOn(
+    eventName: keyof EventMap,
+    callbackfn: (this: EventMap["*"], boxEvent: EventMap["*"]) => void
+  ): this;
+
+  treeOn(
+    eventName: string,
+    callbackfn: (this: EventMap["*"], boxEvent: EventMap["*"]) => void
+  ): this;
+
+  /**
+   * Adds event listeners.
+   * @param eventName
+   * The name(type) of the event.
+   * @param callbackfn
+   * The callbackfn to invoke when the event tigger.
+   */
+  nodesOn<K extends Exclude<keyof EventMap, "*">>(
+    eventName: K,
+    callbackfn: (this: EventMap[K], boxEvent: EventMap[K]) => void
+  ): this;
+
+  nodesOn(
+    eventName: keyof EventMap,
+    callbackfn: (this: EventMap["*"], boxEvent: EventMap["*"]) => void
+  ): this;
+
+  nodesOn(
+    eventName: string,
+    callbackfn: (this: EventMap["*"], boxEvent: EventMap["*"]) => void
+  ): this;
+
+  /**
+   * Adds event listeners.
+   * @param eventName
+   * The name(type) of the event.
+   * @param callbackfn
+   * The callbackfn to invoke when the event tigger.
+   */
+  allOn<K extends Exclude<keyof EventMap, "*">>(
+    eventName: K,
+    callbackfn: (this: EventMap[K], boxEvent: EventMap[K]) => void
+  ): this;
+
+  allOn(
+    eventName: keyof EventMap,
+    callbackfn: (this: EventMap["*"], boxEvent: EventMap["*"]) => void
+  ): this;
+
+  allOn(
+    eventName: string,
+    callbackfn: (this: EventMap["*"], boxEvent: EventMap["*"]) => void
+  ): this;
+
+  /**
    * Removes event listeners.
    * @param eventName
    * The name(type) of the event.
@@ -210,6 +270,39 @@ export interface NormalBox<
   off(eventName: keyof EventMap, callbackfn: Function): this;
 
   off(eventName: string, callbackfn: Function): this;
+
+  /**
+   * Removes event listeners.
+   * @param eventName
+   * The name(type) of the event.
+   * @param callbackfn
+   * The callbackfn used to listen for the event.
+   */
+  treeOff(eventName: keyof EventMap, callbackfn: Function): this;
+
+  treeOff(eventName: string, callbackfn: Function): this;
+
+  /**
+   * Removes event listeners.
+   * @param eventName
+   * The name(type) of the event.
+   * @param callbackfn
+   * The callbackfn used to listen for the event.
+   */
+  nodesOff(eventName: keyof EventMap, callbackfn: Function): this;
+
+  nodesOff(eventName: string, callbackfn: Function): this;
+
+  /**
+   * Removes event listeners.
+   * @param eventName
+   * The name(type) of the event.
+   * @param callbackfn
+   * The callbackfn used to listen for the event.
+   */
+  allOff(eventName: keyof EventMap, callbackfn: Function): this;
+
+  allOff(eventName: string, callbackfn: Function): this;
 
   /**
    * Emits events.
@@ -252,4 +345,57 @@ export interface NormalBox<
     data?: any,
     emitEventConfig?: EmitEventConfig
   ): this;
+
+  /**
+   * Emits events through the box's child tree.
+   * @param eventName
+   * The name(type) of the event.
+   * @param data
+   * The data that will be available through the "data" property of the event object.
+   * @param emitEventConfig
+   * Configures event emission.
+   */
+  nodesEmit(
+    eventName: keyof EventMap,
+    data?: any,
+    emitEventConfig?: EmitEventConfig
+  ): this;
+  nodesEmit(
+    eventName: string,
+    data?: any,
+    emitEventConfig?: EmitEventConfig
+  ): this;
+  nodesEmit(
+    eventName: String,
+    data?: any,
+    emitEventConfig?: EmitEventConfig
+  ): this;
+
+  /**
+   * Emits events through the box's child tree.
+   * @param eventName
+   * The name(type) of the event.
+   * @param data
+   * The data that will be available through the "data" property of the event object.
+   * @param emitEventConfig
+   * Configures event emission.
+   */
+  allEmit(
+    eventName: keyof EventMap,
+    data?: any,
+    emitEventConfig?: EmitEventConfig
+  ): this;
+  allEmit(
+    eventName: string,
+    data?: any,
+    emitEventConfig?: EmitEventConfig
+  ): this;
+  allEmit(
+    eventName: String,
+    data?: any,
+    emitEventConfig?: EmitEventConfig
+  ): this;
 }
+
+export interface NormalBox<BoxContent extends any = any>
+  extends Boxes<BoxContent, NormalBoxEventMap> {}

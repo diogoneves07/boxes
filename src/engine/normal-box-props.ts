@@ -1,5 +1,5 @@
+import { FLAGS } from "./../globals";
 import { LISTENERS_STORE } from "./listeners-store";
-import { EVENTS_PREFIXES } from "./../globals";
 import { NormalBox, BoxEventMap, EmitEventConfig } from "../types/normal-box";
 import { addEvent } from "./add-event";
 import { emitEvents } from "./emit-events";
@@ -7,19 +7,26 @@ import removeWhitespaces from "../utilities/remove-whitespaces";
 import useDataIntoBoxes from "./use-data-into-boxes";
 import runSet from "./run-set";
 import runNormalize from "./run-normalize";
-import { removeBoxFromBroadcastStore } from "./broadcast-store";
-import getChildrenForTreeEmit from "./get-children-for-tree-emit";
 import resetCacheDataIntoBoxes from "./reset-cache-data-into-boxes";
+import definePossibleObservers, {
+  removePossibleOldObservers,
+} from "./define-possible-observers";
+import propagateToChildren from "./propagate-to-children";
 
-function splitWithSpace(eventName: string) {
-  return removeWhitespaces(eventName).trim().split(" ");
+function forEachEventName(
+  eventName: string,
+  callbackfn: (eventName: string) => void
+) {
+  if (!eventName) return;
+
+  if (!eventName.includes(" ")) return callbackfn(eventName);
+
+  for (const e of removeWhitespaces(eventName).trim().split(" ")) {
+    e !== "" && callbackfn(e);
+  }
 }
 
-const normalWrapper = new Set<string>().add("normal");
-
 export const NormalBoxProps: Partial<NormalBox> = {
-  wrappers: normalWrapper,
-  isBox: true,
   get(this: NormalBox) {
     return this.__data.contents;
   },
@@ -56,10 +63,14 @@ export const NormalBoxProps: Partial<NormalBox> = {
     return this;
   },
 
-  change(this: NormalBox, ...newValues: any[]) {
+  new(this: NormalBox, ...newValues: any[]) {
     this.emit("@beforeChange");
 
+    removePossibleOldObservers(this, this.__data.contents);
+
     this.__data.contents = newValues[1] ? newValues : newValues[0];
+    definePossibleObservers(this, this.__data.contents);
+
     resetCacheDataIntoBoxes(this);
 
     this.emit("@normalize");
@@ -94,7 +105,9 @@ export const NormalBoxProps: Partial<NormalBox> = {
     data?: any,
     emitEventConfig?: EmitEventConfig
   ) {
-    emitEvents(this, eventName, data, null, emitEventConfig);
+    forEachEventName(eventName, (t) => {
+      emitEvents(this, t, data, null, emitEventConfig);
+    });
     return this;
   },
 
@@ -104,30 +117,93 @@ export const NormalBoxProps: Partial<NormalBox> = {
     data?: any,
     emitEventConfig?: EmitEventConfig
   ) {
-    const boxes = getChildrenForTreeEmit(this, eventName);
+    this.emit(eventName, data, emitEventConfig);
 
-    if (boxes) {
-      for (const box of boxes) {
-        box.emit(eventName, data, emitEventConfig);
-        box.treeEmit(eventName, data, emitEventConfig);
+    forEachEventName(eventName, (t) => {
+      propagateToChildren(this, t, (box) => {
+        box.emit(t, data, emitEventConfig);
+      });
+    });
+
+    return this;
+  },
+  nodesEmit(
+    this: NormalBox,
+    eventName: string,
+    data?: any,
+    emitEventConfig?: EmitEventConfig
+  ) {
+    forEachEventName(eventName, (t) => {
+      propagateToChildren(this, t, (box) => {
+        box.emit(t, data, emitEventConfig);
+      });
+    });
+
+    return this;
+  },
+  allEmit(
+    this: NormalBox,
+    eventName: string,
+    data?: any,
+    emitEventConfig?: EmitEventConfig
+  ) {
+    this.emit(eventName, data, emitEventConfig);
+    forEachEventName(eventName, (t) => {
+      const boxes = LISTENERS_STORE.get(t);
+      if (boxes) {
+        for (const box of boxes) {
+          if (box !== this) {
+            box.emit(t, data, emitEventConfig);
+          }
+        }
       }
-    }
+    });
 
     return this;
   },
 
   on(this: NormalBox, eventName: string, callbackfn: (boxEvent: any) => void) {
-    splitWithSpace(eventName).forEach((t) => {
-      const eventName = t;
-      if (eventName) {
-        addEvent(this, eventName, callbackfn);
-      }
+    forEachEventName(eventName, (t) => {
+      addEvent(this, t, callbackfn);
+    });
+    return this;
+  },
+
+  treeOn(
+    this: NormalBox,
+    eventName: string,
+    callbackfn: (boxEvent: any) => void
+  ) {
+    forEachEventName(eventName, (t) => {
+      addEvent(this, t + FLAGS.tree, callbackfn);
+    });
+    return this;
+  },
+
+  nodesOn(
+    this: NormalBox,
+    eventName: string,
+    callbackfn: (boxEvent: any) => void
+  ) {
+    forEachEventName(eventName, (t) => {
+      addEvent(this, t + FLAGS.nodes, callbackfn);
+    });
+    return this;
+  },
+
+  allOn(
+    this: NormalBox,
+    eventName: string,
+    callbackfn: (boxEvent: any) => void
+  ) {
+    forEachEventName(eventName, (t) => {
+      addEvent(this, t + FLAGS.all, callbackfn);
     });
     return this;
   },
 
   off(this: NormalBox, eventName: string, callbackfn: Function) {
-    splitWithSpace(eventName).forEach((t) => {
+    forEachEventName(eventName, (t) => {
       const eventName = t;
       const listeners = this.__data.listeners;
 
@@ -139,6 +215,7 @@ export const NormalBoxProps: Partial<NormalBox> = {
       if (!listenerSetOrCallback) {
         return;
       }
+
       if (
         listenerSetOrCallback instanceof Set &&
         listenerSetOrCallback.has(callbackfn)
@@ -154,10 +231,6 @@ export const NormalBoxProps: Partial<NormalBox> = {
         return;
       }
 
-      if (eventName.substring(0, 1) === EVENTS_PREFIXES.broadcast) {
-        removeBoxFromBroadcastStore(eventName, this);
-      }
-
       if (eventName !== "@listenerAdded" && eventName !== "@listenerRemoved") {
         this.emit("@listenerRemoved", null, {
           props: {
@@ -170,6 +243,25 @@ export const NormalBoxProps: Partial<NormalBox> = {
       }
     });
 
+    return this;
+  },
+
+  treeOff(this: NormalBox, eventName: string, callbackfn: Function) {
+    forEachEventName(eventName, (t) => {
+      this.off(t + FLAGS.tree, callbackfn);
+    });
+    return this;
+  },
+  nodesOff(this: NormalBox, eventName: string, callbackfn: Function) {
+    forEachEventName(eventName, (t) => {
+      this.off(t + FLAGS.nodes, callbackfn);
+    });
+    return this;
+  },
+  allOff(this: NormalBox, eventName: string, callbackfn: Function) {
+    forEachEventName(eventName, (t) => {
+      this.off(t + FLAGS.all, callbackfn);
+    });
     return this;
   },
 };

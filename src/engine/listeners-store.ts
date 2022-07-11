@@ -4,7 +4,8 @@ export function addToListenersStore(box: NormalBox, eventName: string) {
   if (LISTENERS_STORE.has(eventName)) {
     LISTENERS_STORE.get(eventName)?.add(box);
   } else {
-    LISTENERS_STORE.set(eventName, new Set<NormalBox>().add(box));
+    const set = new Set<NormalBox>().add(box);
+    LISTENERS_STORE.set(eventName, set);
   }
 }
 /**

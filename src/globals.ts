@@ -5,3 +5,9 @@ export const EVENTS_PREFIXES = {
   mainLibs: "@",
   thirdPartyLibs: "&",
 };
+
+export const FLAGS = {
+  tree: "[tree]",
+  nodes: "[nodes]",
+  all: "[all]",
+};
