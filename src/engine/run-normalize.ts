@@ -1,19 +1,26 @@
-import { BoxEventMap, NormalBox } from "./../types/normal-box";
-import resetCacheDataIntoBoxes from "./reset-cache-data-into-boxes";
+import { NormalBoxEventMap } from "../main";
+import { NormalBox } from "./../types/normal-box";
+import { emitEvents } from "./emit-events";
+import getBoxInternalData from "./get-box-internal-data";
+import {
+  defineBoxParentsAndPossibleObservers,
+  removeOldParentsAndPossibleObservers,
+} from "./parents-and-possible-observers";
+import resetPropsLinkedData from "./reset-props-linked-data";
 /** Calls the listener callbackfn. */
 export default function runNormalize(
   box: NormalBox,
   callbackfn: Function,
-  e?: BoxEventMap["*"]
+  e?: NormalBoxEventMap["*"]
 ) {
-  const data = box.__data;
+  const data = getBoxInternalData(box);
 
   const contents = data.contents;
-
-  box.emit("@beforeNormalize");
-
+  removeOldParentsAndPossibleObservers(box, data.contents);
   data.contents = callbackfn(contents, e as any);
-  resetCacheDataIntoBoxes(box);
+  defineBoxParentsAndPossibleObservers(box, data.contents);
 
-  box.emit("@normalized");
+  resetPropsLinkedData(box);
+
+  emitEvents(box, "@normalized");
 }

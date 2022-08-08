@@ -1,0 +1,204 @@
+ /**
+   * Adds event listeners.
+   * @param eventName
+   * The name(type) of the event.
+   * @param callbackfn
+   * The callbackfn to invoke when the event tigger.
+   */
+  on<K extends Exclude<keyof EventMap, "*">>(
+    eventName: K,
+    callbackfn: (this: EventMap[K], boxEvent: EventMap[K]) => void
+  ): this;
+
+  on(
+    eventName: string,
+    callbackfn: (this: EventMap["*"], boxEvent: EventMap["*"]) => void
+  ): this;
+
+  /**
+   * Adds event listeners.
+   * @param eventName
+   * The name(type) of the event.
+   * @param callbackfn
+   * The callbackfn to invoke when the event tigger.
+   */
+  treeOn<K extends Exclude<keyof EventMap, "*">>(
+    eventName: K,
+    callbackfn: (this: EventMap[K], boxEvent: EventMap[K]) => void
+  ): this;
+
+  treeOn(
+    eventName: string,
+    callbackfn: (this: EventMap["*"], boxEvent: EventMap["*"]) => void
+  ): this;
+
+  /**
+   * Adds event listeners.
+   * @param eventName
+   * The name(type) of the event.
+   * @param callbackfn
+   * The callbackfn to invoke when the event tigger.
+   */
+  itemsOn<K extends Exclude<keyof EventMap, "*">>(
+    eventName: K,
+    callbackfn: (this: EventMap[K], boxEvent: EventMap[K]) => void
+  ): this;
+
+  itemsOn(
+    eventName: string,
+    callbackfn: (this: EventMap["*"], boxEvent: EventMap["*"]) => void
+  ): this;
+
+  /**
+   * Adds event listeners.
+   * @param eventName
+   * The name(type) of the event.
+   * @param callbackfn
+   * The callbackfn to invoke when the event tigger.
+   */
+  allOn<K extends Exclude<keyof EventMap, "*">>(
+    eventName: K,
+    callbackfn: (this: EventMap[K], boxEvent: EventMap[K]) => void
+  ): this;
+
+  allOn(
+    eventName: string,
+    callbackfn: (this: EventMap["*"], boxEvent: EventMap["*"]) => void
+  ): this;
+
+  /**
+   * Removes event listeners.
+   * @param eventName
+   * The name(type) of the event.
+   * @param callbackfn
+   * The callbackfn used to listen for the event.
+   */
+  off(eventName: keyof EventMap, callbackfn: Function): this;
+
+  off(eventName: string, callbackfn: Function): this;
+
+  /**
+   * Removes event listeners.
+   * @param eventName
+   * The name(type) of the event.
+   * @param callbackfn
+   * The callbackfn used to listen for the event.
+   */
+  treeOff(eventName: keyof EventMap, callbackfn: Function): this;
+
+  treeOff(eventName: string, callbackfn: Function): this;
+
+  /**
+   * Removes event listeners.
+   * @param eventName
+   * The name(type) of the event.
+   * @param callbackfn
+   * The callbackfn used to listen for the event.
+   */
+  itemsOff(eventName: keyof EventMap, callbackfn: Function): this;
+
+  itemsOff(eventName: string, callbackfn: Function): this;
+
+  /**
+   * Removes event listeners.
+   * @param eventName
+   * The name(type) of the event.
+   * @param callbackfn
+   * The callbackfn used to listen for the event.
+   */
+  allOff(eventName: keyof EventMap, callbackfn: Function): this;
+
+  allOff(eventName: string, callbackfn: Function): this;
+
+  /**
+   * Emits events.
+   * @param eventName
+   * The name(type) of the event.
+   * @param data
+   * The data that will be available through the "data" property of the event object.
+   * @param emitEventConfig
+   * Configures event emission.
+   */
+  emit(
+    eventName: keyof EventMap,
+    data?: any,
+    emitEventConfig?: EmitEventConfig
+  ): this;
+  emit(eventName: string, data?: any, emitEventConfig?: EmitEventConfig): this;
+  emit(eventName: String, data?: any, emitEventConfig?: EmitEventConfig): this;
+
+  /**
+   * Emits events through the box's child tree.
+   * @param eventName
+   * The name(type) of the event.
+   * @param data
+   * The data that will be available through the "data" property of the event object.
+   * @param emitEventConfig
+   * Configures event emission.
+   */
+  treeEmit(
+    eventName: keyof EventMap,
+    data?: any,
+    emitEventConfig?: EmitEventConfig
+  ): this;
+  treeEmit(
+    eventName: string,
+    data?: any,
+    emitEventConfig?: EmitEventConfig
+  ): this;
+  treeEmit(
+    eventName: String,
+    data?: any,
+    emitEventConfig?: EmitEventConfig
+  ): this;
+
+  /**
+   * Emits events through the box's child tree.
+   * @param eventName
+   * The name(type) of the event.
+   * @param data
+   * The data that will be available through the "data" property of the event object.
+   * @param emitEventConfig
+   * Configures event emission.
+   */
+  itemsEmit(
+    eventName: keyof EventMap,
+    data?: any,
+    emitEventConfig?: EmitEventConfig
+  ): this;
+  itemsEmit(
+    eventName: string,
+    data?: any,
+    emitEventConfig?: EmitEventConfig
+  ): this;
+  itemsEmit(
+    eventName: String,
+    data?: any,
+    emitEventConfig?: EmitEventConfig
+  ): this;
+
+  /**
+   * Emits events through the box's child tree.
+   * @param eventName
+   * The name(type) of the event.
+   * @param data
+   * The data that will be available through the "data" property of the event object.
+   * @param emitEventConfig
+   * Configures event emission.
+   */
+
+  allEmit(
+    eventName: keyof EventMap,
+    data?: any,
+    emitEventConfig?: EmitEventConfig
+  ): this;
+  allEmit(
+    eventName: string,
+    data?: any,
+    emitEventConfig?: EmitEventConfig
+  ): this;
+  allEmit(
+    eventName: String,
+    data?: any,
+    emitEventConfig?: EmitEventConfig
+  ): this;

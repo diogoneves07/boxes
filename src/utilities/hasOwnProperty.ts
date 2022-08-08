@@ -1,4 +1,7 @@
-export default function hasOwnProperty(o: object, key: string) {
+export default function hasOwnProperty(
+  o: object,
+  key: string | number | symbol
+) {
   if (!o) {
     return false;
   }

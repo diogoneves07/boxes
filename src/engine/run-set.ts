@@ -1,28 +1,34 @@
-import { NormalBox, BoxEventMap } from "./../types/normal-box";
-import definePossibleObservers, {
-  removePossibleOldObservers,
-} from "./define-possible-observers";
-import resetCacheDataIntoBoxes from "./reset-cache-data-into-boxes";
+import { NormalBoxEventMap } from "./../types/normal-box-event-map";
+import { NormalBox } from "./../types/normal-box";
+import {
+  defineBoxParentsAndPossibleObservers,
+  removeOldParentsAndPossibleObservers,
+} from "./parents-and-possible-observers";
+import resetPropsLinkedData from "./reset-props-linked-data";
+import getBoxInternalData from "./get-box-internal-data";
+import { emitEvents } from "./emit-events";
+
 /** Calls the listener callbackfn. */
 export default function runSet(
   box: NormalBox,
   callbackfn: Function,
-  e?: BoxEventMap["*"]
+  e?: NormalBoxEventMap["*"]
 ) {
-  const data = box.__data;
+  const data = getBoxInternalData(box);
   const contents = data.contents;
 
-  box.emit("@beforeSet");
-  box.emit("@beforeChange");
+  emitEvents(box, "@beforeSet");
+  emitEvents(box, "@beforeChange");
 
-  removePossibleOldObservers(box, data.contents);
+  removeOldParentsAndPossibleObservers(box, data.contents);
 
   data.contents = e ? callbackfn(contents, e as any) : callbackfn(contents);
 
-  definePossibleObservers(box, data.contents);
+  defineBoxParentsAndPossibleObservers(box, data.contents);
 
-  resetCacheDataIntoBoxes(box);
-  box.emit("@normalize");
-  box.emit("@seted");
-  box.emit("@changed");
+  resetPropsLinkedData(box);
+
+  emitEvents(box, "@normalize");
+  emitEvents(box, "@seted");
+  emitEvents(box, "@changed");
 }

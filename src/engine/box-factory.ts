@@ -1,20 +1,23 @@
+import { NormalBoxInternalData } from "./../types/normal-box-internal-data";
+import { BOX_INTERNAL_DATA, IS_BOX } from "./boxes-symbols";
 import { NormalBox } from "../types/normal-box";
-import definePossibleObservers from "./define-possible-observers";
 import { emitEvents } from "./emit-events";
-import { NormalBoxProps } from "./normal-box-props";
-import resetCacheDataIntoBoxes from "./reset-cache-data-into-boxes";
+import { defineBoxParentsAndPossibleObservers } from "./parents-and-possible-observers";
+import resetPropsLinkedData from "./reset-props-linked-data";
+import getBoxInternalData from "./get-box-internal-data";
 /** Unique id for each box */
 let boxesId = 0;
-
-const normalWrapper = new Set<string>().add("normal");
-export function BoxFactory<BoxContent>(): NormalBox<BoxContent> {
+const normalWrap = new Set<string>(["normal"]);
+export function BoxFactory<BoxContent>(
+  secret: boolean = false
+): NormalBox<BoxContent> {
   const Box = ((...args: any) => {
-    const data = Box.__data;
+    const data = getBoxInternalData(Box);
+    const values = args.length === 1 ? args[0] : args;
+    defineBoxParentsAndPossibleObservers(Box, values);
 
     emitEvents(Box, "@beforeAdd");
     emitEvents(Box, "@beforeChange");
-
-    const values = args.length === 1 ? args[0] : args;
 
     if (!data.contents) {
       data.contents =
@@ -26,25 +29,25 @@ export function BoxFactory<BoxContent>(): NormalBox<BoxContent> {
       data.contents.push(...args);
     }
 
-    definePossibleObservers(Box, values);
-    resetCacheDataIntoBoxes(Box);
+    resetPropsLinkedData(Box);
 
     emitEvents(Box, "@normalize");
     emitEvents(Box, "@added");
     emitEvents(Box, "@changed");
-
     return Box;
   }) as unknown as NormalBox;
 
-  Object.setPrototypeOf(Box, NormalBoxProps);
-
-  Box.__data = {
+  (Box as any)[BOX_INTERNAL_DATA] = {
     contents: null,
-  };
+    notPointable: secret,
+  } as NormalBoxInternalData;
+  (Box as any)[IS_BOX] = true;
 
   (Box as any).id = ++boxesId;
-  (Box as any).isBox = true;
-  Box.wrappers = normalWrapper;
+  Box.wrappers = normalWrap;
+  Box.parents = null;
+  Box.itemsType = new Set();
+  Box.hasBoxesReuse = true;
 
   return Box;
 }

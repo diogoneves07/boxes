@@ -1,4 +1,5 @@
 export type NormalBoxEvents =
+  | "@beforeGet"
   | "@beforeAdd"
   | "@added"
   | "@beforeSet"

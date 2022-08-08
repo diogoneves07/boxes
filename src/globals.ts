@@ -8,6 +8,6 @@ export const EVENTS_PREFIXES = {
 
 export const FLAGS = {
   tree: "[tree]",
-  nodes: "[nodes]",
-  all: "[all]",
+  items: "[items]",
+  global: "[global]",
 };
